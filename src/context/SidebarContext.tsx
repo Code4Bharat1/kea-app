@@ -8,6 +8,7 @@ import {
   BackHandler,
   Platform,
   Easing,
+  PanResponder,
 } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { Sidebar } from '../components/common/Sidebar';
@@ -51,16 +52,16 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const [openedFromSidebarRoutes, setOpenedFromSidebarRoutes] = useState<string[]>([]);
 
-  // Ultra-smooth native driver slide & fade (180ms cubic out)
+  // Ultra-fluid physics-based spring animation to open
   const openSidebar = useCallback(() => {
     setIsSidebarOpen(true);
     Animated.parallel([
-      Animated.timing(slideAnim, {
+      Animated.spring(slideAnim, {
         toValue: 0,
-        duration: 190,
-        easing: Easing.out(Easing.cubic),
+        damping: 26,
+        mass: 0.85,
+        stiffness: 280,
         useNativeDriver: true,
       }),
       Animated.timing(backdropOpacity, {
@@ -72,19 +73,19 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     ]).start();
   }, [slideAnim, backdropOpacity]);
 
-  // Ultra-responsive close animation (160ms cubic in)
+  // Snappy, fast slide animation to close
   const closeSidebar = useCallback(() => {
     Animated.parallel([
       Animated.timing(slideAnim, {
         toValue: -DRAWER_WIDTH,
-        duration: 160,
-        easing: Easing.in(Easing.cubic),
+        duration: 170,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
       Animated.timing(backdropOpacity, {
         toValue: 0,
-        duration: 160,
-        easing: Easing.in(Easing.cubic),
+        duration: 170,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -101,48 +102,78 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [isSidebarOpen, openSidebar, closeSidebar]);
 
   const markOpenedFromSidebar = useCallback((route: string) => {
-    const isDashboard =
-      route === '/' || route === '/(tabs)' || route === '/(tabs)/index' || route === '/dashboard';
-    if (isDashboard) {
-      setOpenedFromSidebarRoutes([]);
-      return;
-    }
-    const norm = normalizeRoute(route);
-    if (!norm) return;
-    setOpenedFromSidebarRoutes((prev) => {
-      if (prev.includes(norm)) return prev;
-      return [...prev, norm];
-    });
+    // Kept for backward compatibility
   }, []);
 
   const clearAllOpenedFromSidebar = useCallback(() => {
-    setOpenedFromSidebarRoutes([]);
-  }, []);
-
-  const removeRouteFromSidebar = useCallback((normRoute: string) => {
-    setOpenedFromSidebarRoutes((prev) => prev.filter((r) => r !== normRoute));
+    // Kept for backward compatibility
   }, []);
 
   const goBack = useCallback(() => {
-    const currentNorm = normalizeRoute(pathname);
-    if (openedFromSidebarRoutes.includes(currentNorm)) {
-      removeRouteFromSidebar(currentNorm);
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/(tabs)');
-      }
-      openSidebar();
+    if (router.canGoBack()) {
+      router.back();
     } else {
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/(tabs)');
-      }
+      router.replace('/(tabs)');
     }
-  }, [pathname, openedFromSidebarRoutes, openSidebar, removeRouteFromSidebar]);
+  }, []);
 
-  // Android hardware back button handler for open drawer
+  // Gesture PanResponder: Drag/Swipe to close when drawer is open
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dx < 0) {
+          const newX = Math.max(-DRAWER_WIDTH, gestureState.dx);
+          slideAnim.setValue(newX);
+          const progress = 1 - Math.abs(newX) / DRAWER_WIDTH;
+          backdropOpacity.setValue(Math.max(0, Math.min(1, progress)));
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx < -DRAWER_WIDTH * 0.22 || gestureState.vx < -0.35) {
+          closeSidebar();
+        } else {
+          openSidebar();
+        }
+      },
+      onPanResponderTerminate: () => {
+        openSidebar();
+      },
+    })
+  ).current;
+
+  // Edge Swipe PanResponder: Drag from left edge to open when closed
+  const edgePanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return gestureState.dx > 12 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dx > 0) {
+          const newX = Math.min(0, -DRAWER_WIDTH + gestureState.dx);
+          slideAnim.setValue(newX);
+          const progress = (DRAWER_WIDTH + newX) / DRAWER_WIDTH;
+          backdropOpacity.setValue(Math.max(0, Math.min(1, progress)));
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx > DRAWER_WIDTH * 0.22 || gestureState.vx > 0.35) {
+          openSidebar();
+        } else {
+          closeSidebar();
+        }
+      },
+      onPanResponderTerminate: () => {
+        closeSidebar();
+      },
+    })
+  ).current;
+
+  // Android hardware back button handler
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
@@ -173,7 +204,15 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
       <View style={styles.rootContainer}>
         {children}
 
-        {/* Ultra-Smooth Global Slide-Over Sidebar Drawer (Instant Native Overlay) */}
+        {/* Free Edge Swipe Area (allows swiping from left edge of screen to slide open the sidebar) */}
+        {!isSidebarOpen ? (
+          <View
+            style={styles.edgeSwipeZone}
+            {...edgePanResponder.panHandlers}
+          />
+        ) : null}
+
+        {/* Global Slide-Over Sidebar Drawer */}
         <View
           pointerEvents={isSidebarOpen ? 'auto' : 'none'}
           style={[StyleSheet.absoluteFill, { zIndex: 99999 }]}
@@ -192,14 +231,15 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
             />
           </Animated.View>
 
-          {/* Smooth Sliding Drawer Content */}
+          {/* Smooth Sliding Drawer Content with drag-to-close gesture */}
           <Animated.View
+            {...panResponder.panHandlers}
             style={[
               styles.drawerContentContainer,
               { transform: [{ translateX: slideAnim }] },
             ]}
           >
-            <Sidebar onClose={closeSidebar} onNavigate={markOpenedFromSidebar} />
+            <Sidebar onClose={closeSidebar} />
           </Animated.View>
         </View>
       </View>
@@ -228,6 +268,14 @@ export const useSidebar = (): SidebarContextType => {
 const styles = StyleSheet.create({
   rootContainer: {
     flex: 1,
+  },
+  edgeSwipeZone: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 24,
+    zIndex: 999,
   },
   drawerBackdrop: {
     ...StyleSheet.absoluteFill,

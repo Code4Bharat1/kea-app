@@ -77,12 +77,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return;
     }
 
-    // Mark route as opened from sidebar so that going back returns directly to sidebar
     requestAnimationFrame(() => {
-      router.push({
-        pathname: route as any,
-        params: { fromSidebar: '1' },
-      } as any);
+      router.push(route as any);
     });
   };
 

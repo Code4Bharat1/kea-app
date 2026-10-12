@@ -52,36 +52,22 @@ export const Header: React.FC<HeaderProps> = ({
   const [showProfileMenu, setShowProfileMenu] = useState<boolean>(false);
   const { openSidebar, closeSidebar, isSidebarOpen } = useSidebar();
   const params = useLocalSearchParams();
-  const isFromSidebar = params?.fromSidebar === '1';
-
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS !== 'android') return;
 
       const onHardwareBackPress = () => {
-        // 1. If sidebar drawer is currently open on this screen, close it
+        // If sidebar drawer is currently open, close it
         if (isSidebarOpen) {
           closeSidebar();
           return true;
         }
-
-        // 2. If this screen was opened from the sidebar, pop back and immediately open sidebar!
-        if (isFromSidebar) {
-          if (router.canGoBack()) {
-            router.back();
-          } else {
-            router.replace('/(tabs)');
-          }
-          openSidebar();
-          return true;
-        }
-
         return false;
       };
 
       const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBackPress);
       return () => sub.remove();
-    }, [isSidebarOpen, isFromSidebar, openSidebar, closeSidebar])
+    }, [isSidebarOpen, closeSidebar])
   );
 
   const getInitials = (name?: string) => {
