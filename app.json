@@ -1,25 +1,39 @@
 {
   "expo": {
-    "name": "KEA-Mobile-App",
-    "slug": "KEA-Mobile-App",
+    "name": "Kokani Engineers Association",
+    "slug": "kea-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/kea-logo.png",
     "userInterfaceStyle": "light",
-    "ios": {
-      "supportsTablet": true
+    "splash": {
+      "image": "./assets/splash-full.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
     },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Allow KEA to use Face ID for secure biometric authentication."
+      }
+    },
+    "scheme": "kea-mobile-app",
     "android": {
+      "package": "com.kea.mobileapp",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/kea-logo.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/kea-logo.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-secure-store",
+      "expo-local-authentication"
+    ]
   }
 }
