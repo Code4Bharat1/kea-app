@@ -351,11 +351,15 @@ export default function MentorshipListScreen() {
         visible={toastConfig.visible}
         message={toastConfig.message}
         type={toastConfig.type}
-        onDismiss={() => setToastConfig({ ...toastConfig, visible: false })}
+        onDismiss={() => setToastConfig((prev) => ({ ...prev, visible: false }))}
       />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        overScrollMode="never"
+        scrollEventThrottle={16}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
         }

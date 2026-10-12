@@ -13,6 +13,7 @@ import {
   Image,
   Dimensions,
   Alert,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import {
@@ -245,6 +246,10 @@ export default function GalleryScreen() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         showsVerticalScrollIndicator={false}
+        overScrollMode="never"
+        scrollEventThrottle={16}
+        removeClippedSubviews={Platform.OS === 'android'}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Title & Action Header Bar */}
         <View style={styles.topHeaderCard}>

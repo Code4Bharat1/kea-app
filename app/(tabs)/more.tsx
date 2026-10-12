@@ -1,17 +1,18 @@
 import React from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  ScrollView, 
-  Text, 
-  Image, 
-  TouchableOpacity, 
-  Platform, 
-  StatusBar 
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Text,
+  Image,
+  TouchableOpacity,
+  Platform,
+  StatusBar
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Sidebar } from '../../src/components/common/Sidebar';
+import { KeaLogoBanner } from '../../src/components/common/KeaLogoBanner';
 import { Colors } from '../../src/constants/theme';
 import { Bell, ShieldCheck, Award } from 'lucide-react-native';
 
@@ -26,8 +27,8 @@ export default function MoreScreen() {
               <Award size={16} color="#FBBF24" style={{ marginRight: 6 }} />
               <Text style={styles.topTitleText}>KEA GLOBAL PLATFORM</Text>
             </View>
-            <TouchableOpacity 
-              style={styles.notifBtn} 
+            <TouchableOpacity
+              style={styles.notifBtn}
               onPress={() => router.push('/notifications')}
               activeOpacity={0.8}
             >
@@ -36,18 +37,14 @@ export default function MoreScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Extra Large Logo Image */}
-          <Image
-            source={require('../../assets/kea-logo.png')}
-            style={styles.extraLargeLogoImage}
-            resizeMode="contain"
-          />
+          {/* Standardized Extra Large Logo Banner */}
+          <KeaLogoBanner size="xlarge" style={{ marginVertical: 8 }} />
 
-          {/* Prominent Kokani Engineers & Professionals Association Title Badge */}
+          {/* Prominent Kokani Engineers & Professional Association Title Badge */}
           <View style={styles.associationTitleCard}>
             <ShieldCheck size={18} color="#FBBF24" style={{ marginRight: 6 }} />
             <Text style={styles.associationTitleText}>
-              Kokani Engineers & Professionals Association
+              Kokani Engineers & Professional Association
             </Text>
           </View>
         </View>
@@ -115,9 +112,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
   extraLargeLogoImage: {
-    width: 320,
-    height: 95,
-    marginVertical: 4,
+    width: '92%',
+    maxWidth: 320,
+    height: 130,
+    marginVertical: 8,
   },
   associationTitleCard: {
     flexDirection: 'row',

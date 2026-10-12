@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Image, StyleSheet, StyleProp, ViewStyle, ImageStyle } from 'react-native';
 
-interface KeaLogoProps {
-  size?: 'small' | 'medium' | 'large' | number;
+export interface KeaLogoProps {
+  size?: 'small' | 'medium' | 'large' | 'xlarge' | number;
   variant?: 'default' | 'banner' | 'emblem';
   style?: StyleProp<ViewStyle>;
   imageStyle?: StyleProp<ImageStyle>;
@@ -10,34 +10,29 @@ interface KeaLogoProps {
 
 export const KeaLogo: React.FC<KeaLogoProps> = ({
   size = 'medium',
-  variant = 'default',
+  variant = 'banner',
   style,
   imageStyle,
 }) => {
   const getLogoDimensions = () => {
-    if (variant === 'emblem') {
-      const dim = typeof size === 'number' ? size : size === 'small' ? 40 : size === 'large' ? 80 : 56;
-      return { height: dim, width: dim };
-    }
-
     if (typeof size === 'number') {
-      return { height: size, width: size * 2.5 };
+      return { height: size, width: size * 2.33 };
     }
     switch (size) {
       case 'small':
-        return { height: 32, width: 120 };
+        return { height: 40, width: 93 };
       case 'large':
-        return { height: 60, width: 220 };
+        return { height: 95, width: 221 };
+      case 'xlarge':
+        return { height: 135, width: 314 };
       case 'medium':
       default:
-        return { height: 44, width: 160 };
+        return { height: 60, width: 140 };
     }
   };
 
   const dimensions = getLogoDimensions();
-  const logoSource = variant === 'emblem'
-    ? require('../../../assets/kea-logo.png')
-    : require('../../../assets/kea-logo-banner.png');
+  const logoSource = require('../../../assets/kea-logo.png');
 
   return (
     <View style={[styles.container, style]}>

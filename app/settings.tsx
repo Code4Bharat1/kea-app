@@ -334,7 +334,14 @@ export default function SettingsScreen() {
     <View style={styles.container}>
       <Header title="User settings" showBack showNotif={false} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        overScrollMode="never"
+        scrollEventThrottle={16}
+        removeClippedSubviews={Platform.OS === 'android'}
+      >
         {/* Header Title Section */}
         <View style={styles.headerBox}>
           <Text style={styles.mainTitle}>User settings</Text>

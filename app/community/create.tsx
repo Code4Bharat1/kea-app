@@ -27,7 +27,16 @@ export default function CreateThreadScreen() {
     try {
       await forumsApi.createThread(title.trim(), content.trim(), category);
       Alert.alert('Success', 'Your discussion topic has been published!', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/community') },
+        {
+          text: 'OK',
+          onPress: () => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.push('/community' as any);
+            }
+          },
+        },
       ]);
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to create discussion topic.';

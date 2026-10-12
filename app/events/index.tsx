@@ -11,6 +11,7 @@ import {
   Modal,
   FlatList,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import {
@@ -211,6 +212,10 @@ export default function EventsIndexScreen() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         showsVerticalScrollIndicator={false}
+        overScrollMode="never"
+        scrollEventThrottle={16}
+        removeClippedSubviews={Platform.OS === 'android'}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Modern Hero Banner Card */}
         <View style={styles.heroBannerCard}>

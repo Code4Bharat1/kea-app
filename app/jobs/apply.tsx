@@ -61,7 +61,13 @@ export default function JobApplyScreen() {
 
           <Button
             title="Return to Jobs"
-            onPress={() => router.replace('/(tabs)/jobs')}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.push('/jobs' as any);
+              }
+            }}
             variant="primary"
             style={{ width: '100%', marginTop: 24 }}
           />
@@ -93,7 +99,7 @@ export default function JobApplyScreen() {
               </Text>
               <Button
                 title="Upload Resume in Profile"
-                onPress={() => router.push('/(tabs)/profile/resumes')}
+                onPress={() => router.push('/profile/resumes' as any)}
                 variant="outline"
                 size="small"
                 style={{ marginTop: 10 }}

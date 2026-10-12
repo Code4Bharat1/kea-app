@@ -1,46 +1,39 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  RefreshControl, 
-  TouchableOpacity, 
-  Alert, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  Alert,
   Platform,
   Image,
-  Dimensions
+  Linking,
 } from 'react-native';
 import { useAuth } from '../../src/context/AuthContext';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/theme';
 import { Header } from '../../src/components/common/Header';
-import { Card } from '../../src/components/common/Card';
-import { Badge } from '../../src/components/common/Badge';
-import { Button } from '../../src/components/common/Button';
-import { 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Briefcase, 
-  GraduationCap, 
-  FileText, 
-  Settings, 
-  Edit, 
+import {
+  Mail,
+  Phone,
+  MapPin,
+  Briefcase,
+  GraduationCap,
+  FileText,
+  Settings,
+  Edit3,
   LogOut,
   Building,
-  CheckCircle,
-  Award,
-  Globe,
+  CheckCircle2,
   Home,
   Clock,
   ChevronRight,
   ShieldCheck,
-  UserCheck,
-  Sparkles
+  ExternalLink,
+  Plus,
 } from 'lucide-react-native';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const { user, refreshUser, logout } = useAuth();
@@ -64,11 +57,11 @@ export default function ProfileScreen() {
       }
     } else {
       Alert.alert(
-        'Logout Confirmation',
+        'Sign Out',
         'Are you sure you want to sign out of your KEA account?',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Logout', style: 'destructive', onPress: doLogout },
+          { text: 'Sign Out', style: 'destructive', onPress: doLogout },
         ]
       );
     }
@@ -84,44 +77,41 @@ export default function ProfileScreen() {
     return profile.category;
   };
 
-  const calculateProfileCompletion = () => {
-    if (!user) return 0;
-    let score = 0;
-    if (user.name) score += 10;
-    if (user.email) score += 10;
-    if (profile?.phone) score += 10;
-    if (profile?.headline) score += 10;
-    if (profile?.bio) score += 10;
-    if (profile?.location) score += 5;
-    if (profile?.nativeAddition) score += 5;
-    if (profile?.category) score += 5;
-    if (profile?.country) score += 5;
-    if (profile?.skills && profile.skills.length > 0) score += 10;
-    if (profile?.experience && profile.experience.length > 0) score += 10;
-    if (profile?.education && profile.education.length > 0) score += 10;
-    return Math.min(score, 100);
-  };
-
-  const completionScore = calculateProfileCompletion();
-
   const getInitials = (name?: string) => {
     if (!name) return 'KM';
     return name
+      .trim()
       .split(' ')
-      .map(word => word[0])
+      .filter(Boolean)
+      .map((word) => word[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
   };
 
+  const memberId = user?._id ? `KEA-${user._id.substring(user._id.length - 6).toUpperCase()}` : 'KEA-MEMBER';
+
+  const handleEmailPress = (email?: string) => {
+    if (email) Linking.openURL(`mailto:${email}`);
+  };
+
+  const handlePhonePress = (phone?: string) => {
+    if (phone) Linking.openURL(`tel:${phone}`);
+  };
+
   return (
     <View style={styles.container}>
       <Header
-        title="My Profile"
+        title="Profile"
         showBack
         rightAction={
-          <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/settings')} activeOpacity={0.7}>
-            <Settings size={22} color={Colors.textPrimary} />
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            onPress={() => router.push('/settings')}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Settings size={20} color={Colors.textPrimary} />
           </TouchableOpacity>
         }
       />
@@ -129,788 +119,765 @@ export default function ProfileScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        overScrollMode="never"
+        scrollEventThrottle={16}
+        removeClippedSubviews={Platform.OS === 'android'}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
+          />
+        }
       >
-        {/* Profile Hero Header Card (Dark Navy Theme) */}
-        <View style={styles.heroCard}>
-          {/* Top Decorative Banner Pattern */}
-          <View style={styles.heroTopBanner}>
-            <View style={styles.heroBadgeBox}>
-              <ShieldCheck size={14} color="#FBBF24" style={{ marginRight: 4 }} />
-              <Text style={styles.heroBadgeText}>OFFICIAL KEA MEMBER</Text>
-            </View>
-          </View>
+        {/* PROFILE HEADER CARD (LinkedIn / Real App Standard) */}
+        <View style={styles.profileHeaderCard}>
+          {/* Subtle Brand Cover Bar */}
+          <View style={styles.coverBar} />
 
-          <View style={styles.heroBody}>
-            <View style={styles.avatarContainer}>
-              {profile?.avatar ? (
-                <Image source={{ uri: profile.avatar }} style={styles.avatarImg} />
-              ) : (
-                <View style={styles.avatarLarge}>
-                  <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
-                </View>
-              )}
-              {user?.membershipStatus === 'approved' && (
-                <View style={styles.verifiedIconBadge}>
-                  <CheckCircle size={16} color="#FFFFFF" fill="#10B981" />
-                </View>
-              )}
-            </View>
-
-            <Text style={styles.userName}>{user?.name || 'KEA Engineer'}</Text>
-            <Text style={styles.userHeadline}>{profile?.headline || getCategoryDisplay()}</Text>
-
-            <View style={styles.heroStatusRow}>
-              <View style={[
-                styles.statusTag,
-                user?.membershipStatus === 'approved' ? styles.statusApproved : styles.statusPending
-              ]}>
-                <UserCheck size={12} color={user?.membershipStatus === 'approved' ? '#10B981' : '#F59E0B'} style={{ marginRight: 4 }} />
-                <Text style={[
-                  styles.statusTagText,
-                  { color: user?.membershipStatus === 'approved' ? '#10B981' : '#F59E0B' }
-                ]}>
-                  {user?.membershipStatus === 'approved' ? 'Profile Verified' : `Status: ${user?.membershipStatus || 'Pending'}`}
-                </Text>
+          {/* Profile Identity Info */}
+          <View style={styles.headerBody}>
+            {/* Avatar Row */}
+            <View style={styles.avatarRow}>
+              <View style={styles.avatarContainer}>
+                {profile?.avatar ? (
+                  <Image source={{ uri: profile.avatar }} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.avatarFallback}>
+                    <Text style={styles.avatarFallbackText}>{getInitials(user?.name)}</Text>
+                  </View>
+                )}
+                {user?.membershipStatus === 'approved' ? (
+                  <View style={styles.verifiedCheckBadge}>
+                    <CheckCircle2 size={16} color="#FFFFFF" fill="#10B981" />
+                  </View>
+                ) : null}
               </View>
 
-              {profile?.branch ? (
-                <View style={styles.branchTag}>
-                  <MapPin size={12} color="#94A3B8" style={{ marginRight: 4 }} />
-                  <Text style={styles.branchTagText}>{profile.branch} Chapter</Text>
+              {/* Edit Profile Action */}
+              <TouchableOpacity
+                style={styles.editPillBtn}
+                onPress={() => router.push('/profile/edit')}
+                activeOpacity={0.75}
+              >
+                <Edit3 size={14} color={Colors.primary} style={{ marginRight: 5 }} />
+                <Text style={styles.editPillBtnText}>Edit Profile</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* User Name & Headline */}
+            <Text style={styles.userName}>{user?.name || 'KEA Member'}</Text>
+            <Text style={styles.userHeadline}>
+              {profile?.headline || (profile?.position ? `${profile.position}${profile.company ? ` at ${profile.company}` : ''}` : getCategoryDisplay())}
+            </Text>
+
+            {/* Quick Meta Row */}
+            <View style={styles.metaRow}>
+              {profile?.location || profile?.branch ? (
+                <View style={styles.metaItem}>
+                  <MapPin size={13} color="#64748B" style={{ marginRight: 4 }} />
+                  <Text style={styles.metaItemText}>
+                    {profile?.location || `${profile?.branch} Chapter`}
+                  </Text>
                 </View>
               ) : null}
+
+              <View style={styles.metaItem}>
+                <Briefcase size={13} color="#64748B" style={{ marginRight: 4 }} />
+                <Text style={styles.metaItemText}>{getCategoryDisplay()}</Text>
+              </View>
+
+              <View style={styles.metaItem}>
+                <ShieldCheck size={13} color="#D97706" style={{ marginRight: 4 }} />
+                <Text style={styles.memberIdText}>{memberId}</Text>
+              </View>
             </View>
 
-            {/* Edit Profile Action Button */}
-            <View style={styles.heroActionsRow}>
+            {/* Quick Action Pills */}
+            <View style={styles.quickActionsRow}>
               <TouchableOpacity
-                style={styles.heroEditBtn}
-                onPress={() => router.push('/profile/edit')}
-                activeOpacity={0.85}
-              >
-                <Edit size={15} color="#0D2847" style={{ marginRight: 6 }} />
-                <Text style={styles.heroEditBtnText}>Edit Profile</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.heroDocBtn}
+                style={styles.resumesActionBtn}
                 onPress={() => router.push('/profile/resumes')}
-                activeOpacity={0.85}
+                activeOpacity={0.75}
               >
-                <FileText size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.heroDocBtnText}>My Resumes</Text>
+                <FileText size={14} color={Colors.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.resumesActionBtnText}>Manage Resumes</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.settingsActionBtn}
+                onPress={() => router.push('/settings')}
+                activeOpacity={0.75}
+              >
+                <Settings size={14} color="#475569" style={{ marginRight: 6 }} />
+                <Text style={styles.settingsActionBtnText}>Settings</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
-        {/* Profile Completion Card */}
-        <View style={styles.completionCard}>
-          <View style={styles.flexRowBetween}>
-            <View style={styles.flexRow}>
-              <View style={styles.awardIconBox}>
-                <Award size={18} color="#D97706" />
-              </View>
-              <View>
-                <Text style={styles.completionTitle}>Profile Strength</Text>
-                <Text style={styles.completionSub}>
-                  {completionScore === 100
-                    ? '100% Complete — Perfect Profile!'
-                    : 'Complete details for better visibility'}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.scoreBadge}>
-              <Text style={styles.scoreBadgeText}>{completionScore}%</Text>
-            </View>
+        {/* SECTION: ABOUT / PROFESSIONAL SUMMARY */}
+        <View style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>About</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/profile/edit')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Edit3 size={15} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
+          {profile?.bio ? (
+            <Text style={styles.bioText}>{profile.bio}</Text>
+          ) : (
+            <Text style={styles.emptyText}>
+              Add a summary about your engineering background, specializations, and career highlights.
+            </Text>
+          )}
+        </View>
+
+        {/* SECTION: KONKAN ROOTS & HERITAGE (Official KEA Field) */}
+        <View style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>Konkan Heritage & Roots</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/profile/edit')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Edit3 size={15} color="#94A3B8" />
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${completionScore}%` }]} />
+          <View style={styles.fieldList}>
+            <View style={styles.fieldItem}>
+              <Text style={styles.fieldLabel}>Native Place in Konkan</Text>
+              <Text style={styles.fieldValue}>{profile?.location || 'Not specified'}</Text>
+            </View>
+
+            <View style={styles.fieldItem}>
+              <Text style={styles.fieldLabel}>Native Address (Village / Town)</Text>
+              <Text style={styles.fieldValue}>{profile?.nativeAddition || 'Not specified'}</Text>
+            </View>
+
+            <View style={[styles.fieldItem, { borderBottomWidth: 0 }]}>
+              <Text style={styles.fieldLabel}>Assigned KEA Chapter</Text>
+              <Text style={styles.fieldValue}>{profile?.branch ? `${profile.branch} Chapter` : 'Kokan Region'}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Personal & Professional Details Card */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeaderRow}>
-            <Sparkles size={18} color="#0D9488" style={{ marginRight: 6 }} />
-            <Text style={styles.sectionTitle}>Personal & Professional Details</Text>
+        {/* SECTION: PROFESSIONAL EXPERIENCE */}
+        <View style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>Experience</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/profile/edit')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Plus size={18} color={Colors.primary} />
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.infoGrid}>
-            <View style={styles.infoItem}>
-              <View style={[styles.infoIconBox, { backgroundColor: '#EFF6FF' }]}>
-                <Mail size={16} color="#2563EB" />
+          {/* Current Company Row */}
+          {profile?.company || profile?.position ? (
+            <View style={styles.currentJobCard}>
+              <View style={styles.companyIconBox}>
+                <Building size={18} color={Colors.primary} />
               </View>
-              <View style={styles.infoCol}>
-                <Text style={styles.infoLabel}>Email Address</Text>
-                <Text style={styles.infoText}>{user?.email}</Text>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.jobRoleText}>{profile.position || 'Engineering Professional'}</Text>
+                <Text style={styles.jobCompanyText}>{profile.company || 'Company'}</Text>
+                {profile?.yearsOfExperience ? (
+                  <Text style={styles.jobPeriodText}>{profile.yearsOfExperience} years of experience</Text>
+                ) : null}
               </View>
-            </View>
-
-            {profile?.phone ? (
-              <View style={styles.infoItem}>
-                <View style={[styles.infoIconBox, { backgroundColor: '#F0FDFA' }]}>
-                  <Phone size={16} color="#0D9488" />
-                </View>
-                <View style={styles.infoCol}>
-                  <Text style={styles.infoLabel}>Phone Contact</Text>
-                  <Text style={styles.infoText}>
-                    {profile.countryCode ? `${profile.countryCode} ` : ''}{profile.phone}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-
-            {profile?.nativeAddition ? (
-              <View style={styles.infoItem}>
-                <View style={[styles.infoIconBox, { backgroundColor: '#FEF3C7' }]}>
-                  <Home size={16} color="#D97706" />
-                </View>
-                <View style={styles.infoCol}>
-                  <Text style={styles.infoLabel}>Native Address (Kokan)</Text>
-                  <Text style={styles.infoText}>{profile.nativeAddition}</Text>
-                </View>
-              </View>
-            ) : null}
-
-            {profile?.location ? (
-              <View style={styles.infoItem}>
-                <View style={[styles.infoIconBox, { backgroundColor: '#FEE2E2' }]}>
-                  <MapPin size={16} color="#EF4444" />
-                </View>
-                <View style={styles.infoCol}>
-                  <Text style={styles.infoLabel}>Native Place in Konkan</Text>
-                  <Text style={styles.infoText}>{profile.location}</Text>
-                </View>
-              </View>
-            ) : null}
-
-            <View style={styles.infoItem}>
-              <View style={[styles.infoIconBox, { backgroundColor: '#F3E8FF' }]}>
-                <Briefcase size={16} color="#7C3AED" />
-              </View>
-              <View style={styles.infoCol}>
-                <Text style={styles.infoLabel}>Stream / Discipline</Text>
-                <Text style={styles.infoText}>{getCategoryDisplay()}</Text>
-              </View>
-            </View>
-
-            {profile?.company || profile?.position ? (
-              <View style={styles.infoItem}>
-                <View style={[styles.infoIconBox, { backgroundColor: '#ECFDF5' }]}>
-                  <Building size={16} color="#059669" />
-                </View>
-                <View style={styles.infoCol}>
-                  <Text style={styles.infoLabel}>Current Company & Position</Text>
-                  <Text style={styles.infoText}>
-                    {profile.position ? profile.position : 'Position'}{profile.company ? ` at ${profile.company}` : ''}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-
-            {profile?.yearsOfExperience ? (
-              <View style={styles.infoItem}>
-                <View style={[styles.infoIconBox, { backgroundColor: '#FFF7ED' }]}>
-                  <Clock size={16} color="#EA580C" />
-                </View>
-                <View style={styles.infoCol}>
-                  <Text style={styles.infoLabel}>Years of Experience</Text>
-                  <Text style={styles.infoText}>{profile.yearsOfExperience}</Text>
-                </View>
-              </View>
-            ) : null}
-          </View>
-
-          {profile?.bio ? (
-            <View style={styles.bioContainer}>
-              <Text style={styles.bioTitle}>Professional Summary</Text>
-              <Text style={styles.bioText}>{profile.bio}</Text>
             </View>
           ) : null}
-        </View>
 
-        {/* Resume Manager Shortcut Banner */}
-        <TouchableOpacity 
-          style={styles.resumeBannerCard} 
-          onPress={() => router.push('/profile/resumes')}
-          activeOpacity={0.85}
-        >
-          <View style={styles.resumeBannerLeft}>
-            <View style={styles.resumeIconBadge}>
-              <FileText size={22} color="#0D9488" />
-            </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.resumeBannerTitle}>Resume Manager</Text>
-              <Text style={styles.resumeBannerSub}>Upload & manage PDF resumes for engineering job applications</Text>
-            </View>
-          </View>
-          <ChevronRight size={20} color="#0D9488" />
-        </TouchableOpacity>
-
-        {/* Skills & Competencies */}
-        {profile?.skills && profile.skills.length > 0 ? (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Skills & Expertise</Text>
-            <View style={styles.skillsRow}>
-              {profile.skills.map((skill, idx) => (
-                <View key={idx} style={styles.skillChip}>
-                  <Text style={styles.skillChipText}>{skill}</Text>
+          {/* Experience Timeline */}
+          {profile?.experience && profile.experience.length > 0 ? (
+            <View style={styles.timelineList}>
+              {profile.experience.map((exp, idx) => (
+                <View key={idx} style={styles.timelineItem}>
+                  <View style={styles.timelineLineWrapper}>
+                    <View style={styles.timelineDot} />
+                    {idx < (profile?.experience?.length || 0) - 1 ? (
+                      <View style={styles.timelineVerticalLine} />
+                    ) : null}
+                  </View>
+                  <View style={styles.timelineDetails}>
+                    <Text style={styles.timelinePosition}>{exp.position}</Text>
+                    <Text style={styles.timelineCompany}>{exp.company}</Text>
+                    <Text style={styles.timelineDate}>{exp.from} – {exp.to || 'Present'}</Text>
+                    {exp.description ? (
+                      <Text style={styles.timelineDesc}>{exp.description}</Text>
+                    ) : null}
+                  </View>
                 </View>
               ))}
             </View>
-          </View>
-        ) : null}
+          ) : !profile?.company ? (
+            <Text style={styles.emptyText}>No work experience listed yet.</Text>
+          ) : null}
+        </View>
 
-        {/* Work Experience Timeline */}
-        {profile?.experience && profile.experience.length > 0 ? (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Work Experience</Text>
-            {profile.experience.map((exp, idx) => (
-              <View key={idx} style={styles.timelineRow}>
-                <View style={styles.timelineIconWrapper}>
-                  <Briefcase size={16} color="#0D9488" />
+        {/* SECTION: EDUCATION */}
+        <View style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>Education</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/profile/edit')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Plus size={18} color={Colors.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {profile?.education && profile.education.length > 0 ? (
+            <View style={styles.timelineList}>
+              {profile.education.map((edu, idx) => (
+                <View key={idx} style={styles.timelineItem}>
+                  <View style={styles.timelineLineWrapper}>
+                    <View style={[styles.timelineDot, { backgroundColor: '#0D9488' }]} />
+                    {idx < (profile?.education?.length || 0) - 1 ? (
+                      <View style={styles.timelineVerticalLine} />
+                    ) : null}
+                  </View>
+                  <View style={styles.timelineDetails}>
+                    <Text style={styles.timelinePosition}>{edu.degree}</Text>
+                    <Text style={styles.timelineCompany}>{edu.institution}</Text>
+                    <Text style={styles.timelineDate}>{edu.from} – {edu.to || 'Present'}</Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.expPosition}>{exp.position}</Text>
-                  <Text style={styles.expCompany}>{exp.company}</Text>
-                  <Text style={styles.expDate}>
-                    {exp.from} - {exp.to || 'Present'}
-                  </Text>
-                  {exp.description ? <Text style={styles.expDesc}>{exp.description}</Text> : null}
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.emptyText}>No education history added yet.</Text>
+          )}
+        </View>
+
+        {/* SECTION: SKILLS */}
+        <View style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>Skills</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/profile/edit')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Edit3 size={15} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
+
+          {profile?.skills && profile.skills.length > 0 ? (
+            <View style={styles.skillsWrapper}>
+              {profile.skills.map((skill, idx) => (
+                <View key={idx} style={styles.skillBadge}>
+                  <Text style={styles.skillBadgeText}>{skill}</Text>
                 </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.emptyText}>Add skills to showcase your engineering expertise.</Text>
+          )}
+        </View>
+
+        {/* SECTION: CONTACT DETAILS */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Contact Details</Text>
+
+          <View style={styles.contactList}>
+            <TouchableOpacity
+              style={styles.contactRow}
+              onPress={() => handleEmailPress(user?.email)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.contactIconCircle}>
+                <Mail size={16} color="#475569" />
               </View>
-            ))}
-          </View>
-        ) : null}
+              <View style={styles.contactCol}>
+                <Text style={styles.contactLabel}>Email Address</Text>
+                <Text style={styles.contactLink}>{user?.email || 'Not provided'}</Text>
+              </View>
+              <ExternalLink size={14} color="#94A3B8" />
+            </TouchableOpacity>
 
-        {/* Education Timeline */}
-        {profile?.education && profile.education.length > 0 ? (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Education History</Text>
-            {profile.education.map((edu, idx) => (
-              <View key={idx} style={styles.timelineRow}>
-                <View style={styles.timelineIconWrapper}>
-                  <GraduationCap size={16} color="#2563EB" />
+            {profile?.phone ? (
+              <TouchableOpacity
+                style={styles.contactRow}
+                onPress={() => handlePhonePress(profile?.phone)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.contactIconCircle}>
+                  <Phone size={16} color="#475569" />
                 </View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.expPosition}>{edu.degree}</Text>
-                  <Text style={styles.expCompany}>{edu.institution}</Text>
-                  <Text style={styles.expDate}>
-                    {edu.from} - {edu.to || 'Present'}
+                <View style={styles.contactCol}>
+                  <Text style={styles.contactLabel}>Phone Number</Text>
+                  <Text style={styles.contactLink}>
+                    {profile.countryCode ? `${profile.countryCode} ` : '+91 '}{profile.phone}
                   </Text>
                 </View>
+                <ExternalLink size={14} color="#94A3B8" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
+        {/* SECTION: MEMBERSHIP INFORMATION */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>KEA Membership</Text>
+
+          <View style={styles.fieldList}>
+            <View style={styles.fieldItem}>
+              <Text style={styles.fieldLabel}>Member ID</Text>
+              <Text style={styles.memberIdVal}>{memberId}</Text>
+            </View>
+
+            <View style={styles.fieldItem}>
+              <Text style={styles.fieldLabel}>Membership Status</Text>
+              <View style={styles.statusInline}>
+                <View style={styles.statusDotGreen} />
+                <Text style={styles.statusInlineText}>
+                  {user?.membershipStatus === 'approved' ? 'Verified & Active' : 'Under Review'}
+                </Text>
               </View>
-            ))}
-          </View>
-        ) : null}
+            </View>
 
-        {/* Membership & Account Details */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Membership & System Info</Text>
-          
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Member ID</Text>
-            <Text style={styles.detailValue}>{user?._id?.substring(0, 8).toUpperCase() || 'KEA-001'}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Assigned Branch</Text>
-            <Text style={styles.detailValue}>{profile?.branch || 'Bangalore'}</Text>
-          </View>
-
-          <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.detailLabel}>Membership Status</Text>
-            <View style={styles.activeStatusChip}>
-              <Text style={styles.activeStatusText}>{user?.membershipStatus || 'Active'}</Text>
+            <View style={[styles.fieldItem, { borderBottomWidth: 0 }]}>
+              <Text style={styles.fieldLabel}>Discipline</Text>
+              <Text style={styles.fieldValue}>{getCategoryDisplay()}</Text>
             </View>
           </View>
         </View>
 
-        {/* Sign Out CTA Button */}
+        {/* SIGN OUT BUTTON */}
         <TouchableOpacity
-          style={styles.logoutBtn}
+          style={styles.signOutBtn}
           onPress={handleLogout}
-          activeOpacity={0.85}
+          activeOpacity={0.75}
         >
-          <LogOut size={18} color="#EF4444" style={{ marginRight: 8 }} />
-          <Text style={styles.logoutBtnText}>Sign Out of KEA Account</Text>
+          <LogOut size={16} color="#DC2626" style={{ marginRight: 8 }} />
+          <Text style={styles.signOutBtnText}>Sign Out of KEA</Text>
         </TouchableOpacity>
+
+        {/* Association Footer */}
+        <View style={styles.footerWrap}>
+          <Text style={styles.footerOrgText}>Kokani Engineers & Professional Association</Text>
+          <Text style={styles.footerVersionText}>Official Member Portal · v1.0.0</Text>
+        </View>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#F8FAFC' 
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
   },
-  headerBtn: { 
-    padding: 6 
+  headerIconBtn: {
+    padding: 6,
   },
-  scrollContent: { 
-    padding: 16, 
-    paddingBottom: 40 
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 40,
   },
 
-  // Dark Navy Hero Card
-  heroCard: {
-    backgroundColor: '#0D2847',
-    borderRadius: 20,
-    marginBottom: 16,
+  // PROFILE HEADER CARD (LinkedIn Style)
+  profileHeaderCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#0D2847',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  heroTopBanner: {
-    backgroundColor: '#1E3A8A',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  heroBadgeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(251, 191, 36, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(251, 191, 36, 0.3)',
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
   },
-  heroBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#FBBF24',
-    letterSpacing: 0.5,
+  coverBar: {
+    height: 64,
+    backgroundColor: '#1E3A8A', // Official KEA Royal Blue
   },
-  heroBody: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 22,
+  headerBody: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  avatarRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: -38,
+    marginBottom: 12,
   },
   avatarContainer: {
     position: 'relative',
-    marginBottom: 14,
   },
-  avatarLarge: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: '#0D9488',
+  avatarImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    backgroundColor: '#E2E8F0',
+  },
+  avatarFallback: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#1E3A8A',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#F59E0B',
   },
-  avatarImg: { 
-    width: 84, 
-    height: 84, 
-    borderRadius: 42,
-    borderWidth: 3,
-    borderColor: '#F59E0B',
+  avatarFallbackText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  avatarText: { 
-    fontSize: 30, 
-    fontWeight: '800', 
-    color: '#FFFFFF' 
-  },
-  verifiedIconBadge: {
+  verifiedCheckBadge: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
-    backgroundColor: '#10B981',
-    borderRadius: 10,
-    padding: 2,
-  },
-  userName: { 
-    fontSize: 22, 
-    fontWeight: '800', 
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  userHeadline: { 
-    fontSize: 13, 
-    color: '#CBD5E1', 
-    marginTop: 4, 
-    textAlign: 'center',
-    maxWidth: '90%',
-  },
-  heroStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  statusTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  statusApproved: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-  },
-  statusPending: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-  },
-  statusTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  branchTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  branchTagText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
-  },
-  heroActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 18,
-    width: '100%',
-  },
-  heroEditBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F59E0B',
-    paddingVertical: 11,
-    borderRadius: 12,
-  },
-  heroEditBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0D2847',
-  },
-  heroDocBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  heroDocBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-
-  // Completion Progress Card
-  completionCard: {
+    bottom: 0,
+    right: 0,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  flexRowBetween: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center' 
-  },
-  flexRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center' 
-  },
-  awardIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  completionTitle: { 
-    fontSize: 14, 
-    fontWeight: '800', 
-    color: '#0F172A' 
-  },
-  completionSub: { 
-    fontSize: 11, 
-    color: '#64748B', 
-    marginTop: 2 
-  },
-  scoreBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  scoreBadgeText: { 
-    fontSize: 13, 
-    fontWeight: '800', 
-    color: '#D97706' 
-  },
-  progressTrack: { 
-    height: 8, 
-    backgroundColor: '#F1F5F9', 
-    borderRadius: 4, 
-    overflow: 'hidden', 
-    marginTop: 12 
-  },
-  progressFill: { 
-    height: '100%', 
-    backgroundColor: '#0D9488', 
-    borderRadius: 4 
-  },
-
-  // Generic Section Cards
-  sectionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  sectionTitle: { 
-    fontSize: 15, 
-    fontWeight: '800', 
-    color: '#0F172A', 
-    marginBottom: 14 
-  },
-  infoGrid: {
-    gap: 12,
-  },
-  infoItem: { 
-    flexDirection: 'row', 
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: 10,
-    borderRadius: 12,
-  },
-  infoIconBox: {
-    width: 34,
-    height: 34,
     borderRadius: 9,
+    padding: 1,
+  },
+  editPillBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#1E3A8A',
+    backgroundColor: '#FFFFFF',
   },
-  infoCol: { 
-    marginLeft: 12, 
-    flex: 1 
-  },
-  infoLabel: { 
-    fontSize: 10.5, 
-    color: '#64748B', 
+  editPillBtnText: {
+    fontSize: 13,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    color: '#1E3A8A',
   },
-  infoText: { 
-    fontSize: 13, 
-    color: '#0F172A', 
-    fontWeight: '700', 
-    marginTop: 1 
+  userName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.3,
   },
-  bioContainer: { 
-    marginTop: 14, 
-    paddingTop: 12, 
-    borderTopWidth: 1, 
-    borderTopColor: '#F1F5F9' 
+  userHeadline: {
+    fontSize: 13.5,
+    color: '#475569',
+    marginTop: 3,
+    lineHeight: 18,
   },
-  bioTitle: {
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 10,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaItemText: {
+    fontSize: 12.5,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  memberIdText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
-    marginBottom: 4,
+    color: '#D97706',
   },
-  bioText: { 
-    fontSize: 12.5, 
-    color: '#334155', 
-    lineHeight: 19 
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
-
-  // Resume Manager Banner Card
-  resumeBannerCard: { 
-    backgroundColor: '#F0FDFA', 
-    borderWidth: 1,
-    borderColor: '#CCFBF1', 
-    marginBottom: 16, 
-    borderRadius: 16,
-    padding: 14,
+  resumesActionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
-  resumeBannerLeft: { 
-    flexDirection: 'row', 
-    alignItems: 'center',
+  resumesActionBtnText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#1E3A8A',
+  },
+  settingsActionBtn: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  resumeIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#CCFBF1',
+  settingsActionBtnText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
+
+  // STANDARD HUMAN-MADE CARDS
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  bioText: {
+    fontSize: 13.5,
+    color: '#334155',
+    lineHeight: 21,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    lineHeight: 19,
+  },
+
+  // FIELD LISTS
+  fieldList: {
+    gap: 2,
+  },
+  fieldItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  fieldLabel: {
+    fontSize: 11.5,
+    color: '#64748B',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  fieldValue: {
+    fontSize: 13.5,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+  memberIdVal: {
+    fontSize: 13.5,
+    color: '#1E3A8A',
+    fontWeight: '700',
+  },
+  statusInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  statusDotGreen: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 6,
+  },
+  statusInlineText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#059669',
+  },
+
+  // CURRENT JOB HIGHLIGHT
+  currentJobCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  companyIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  resumeBannerTitle: { 
-    fontSize: 15, 
-    fontWeight: '800', 
-    color: '#0F172A' 
+  jobRoleText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
   },
-  resumeBannerSub: { 
-    fontSize: 11, 
-    color: '#475569', 
-    marginTop: 2 
+  jobCompanyText: {
+    fontSize: 12.5,
+    color: '#475569',
+    marginTop: 1,
+  },
+  jobPeriodText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 3,
   },
 
-  // Skills Chips
-  skillsRow: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    gap: 8 
+  // TIMELINE
+  timelineList: {
+    gap: 12,
   },
-  skillChip: { 
-    backgroundColor: '#F0FDFA', 
-    paddingHorizontal: 12, 
-    paddingVertical: 7, 
-    borderRadius: 14,
+  timelineItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  timelineLineWrapper: {
+    alignItems: 'center',
+    width: 16,
+    marginRight: 10,
+    marginTop: 5,
+  },
+  timelineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#1E3A8A',
+  },
+  timelineVerticalLine: {
+    width: 1.5,
+    flex: 1,
+    backgroundColor: '#E2E8F0',
+    marginTop: 4,
+  },
+  timelineDetails: {
+    flex: 1,
+    paddingBottom: 8,
+  },
+  timelinePosition: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  timelineCompany: {
+    fontSize: 12.5,
+    color: '#475569',
+    marginTop: 1,
+  },
+  timelineDate: {
+    fontSize: 11.5,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  timelineDesc: {
+    fontSize: 12,
+    color: '#475569',
+    marginTop: 4,
+    lineHeight: 17,
+  },
+
+  // SKILLS
+  skillsWrapper: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  skillBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#99F6E4',
+    borderColor: '#E2E8F0',
   },
-  skillChipText: { 
-    fontSize: 12, 
-    fontWeight: '700', 
-    color: '#0D9488' 
+  skillBadgeText: {
+    fontSize: 12,
+    color: '#334155',
+    fontWeight: '500',
   },
 
-  // Timelines
-  timelineRow: { 
-    flexDirection: 'row', 
-    marginBottom: 14, 
-    alignItems: 'flex-start' 
+  // CONTACT
+  contactList: {
+    gap: 8,
+    marginTop: 6,
   },
-  timelineIconWrapper: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  contactIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  expPosition: { 
-    fontSize: 13.5, 
-    fontWeight: '800', 
-    color: '#0F172A' 
+  contactCol: {
+    marginLeft: 12,
+    flex: 1,
   },
-  expCompany: { 
-    fontSize: 12, 
-    color: '#2563EB', 
-    fontWeight: '700',
+  contactLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  contactLink: {
+    fontSize: 13.5,
+    color: '#1E3A8A',
+    fontWeight: '500',
     marginTop: 1,
   },
-  expDate: { 
-    fontSize: 11, 
-    color: '#64748B', 
-    marginTop: 2 
-  },
-  expDesc: { 
-    fontSize: 11.5, 
-    color: '#475569', 
-    marginTop: 4,
-    lineHeight: 16,
-  },
 
-  // Details List
-  detailRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center',
-    paddingVertical: 10, 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#F1F5F9' 
-  },
-  detailLabel: { 
-    fontSize: 12.5, 
-    color: '#64748B',
-    fontWeight: '600',
-  },
-  detailValue: { 
-    fontSize: 13, 
-    fontWeight: '700', 
-    color: '#0F172A' 
-  },
-  activeStatusChip: {
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  activeStatusText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#059669',
-  },
-
-  // Logout Button
-  logoutBtn: { 
+  // SIGN OUT
+  signOutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FEF2F2',
     borderWidth: 1,
     borderColor: '#FECACA',
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
     marginTop: 6,
   },
-  logoutBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#EF4444',
+  signOutBtnText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#DC2626',
+  },
+
+  // FOOTER
+  footerWrap: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  footerOrgText: {
+    fontSize: 11.5,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  footerVersionText: {
+    fontSize: 10.5,
+    color: '#CBD5E1',
+    marginTop: 2,
   },
 });

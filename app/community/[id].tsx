@@ -326,8 +326,8 @@ export default function ThreadDetailScreen() {
                 typeof rep.author === 'string'
                   ? rep.author
                   : rep.author?.name ||
-                    (typeof rep.user === 'string' ? rep.user : rep.user?.name) ||
-                    'Anonymous';
+                  (typeof rep.user === 'string' ? rep.user : rep.user?.name) ||
+                  'Anonymous';
 
               const repLikes = rep.likes?.length || 0;
 

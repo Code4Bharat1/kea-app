@@ -10,9 +10,8 @@ function extractJobsArray(data: any): JobItem[] {
   else if (Array.isArray(data?.data?.jobs)) items = data.data.jobs;
   else if (Array.isArray(data?.items)) items = data.items;
 
-  const TRASH_TITLES = ['abc', 'test', 'dfsk', 'testing', 'xyz', 'demo'];
   return items.filter(
-    (j) => j && j.title && !TRASH_TITLES.includes(j.title.trim().toLowerCase())
+    (j) => j && j.title && j.title.trim().length > 0
   );
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Colors } from '../../constants/theme';
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react-native';
@@ -18,17 +18,19 @@ export const Toast: React.FC<ToastProps> = ({
   onDismiss,
   duration = 3500,
 }) => {
-  const [translateY] = useState(() => new Animated.Value(-100));
+  const translateY = useRef(new Animated.Value(-100)).current;
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
 
-  const hideToast = useCallback(() => {
+  const hideToast = () => {
     Animated.timing(translateY, {
       toValue: -100,
       duration: 250,
       useNativeDriver: true,
     }).start(() => {
-      onDismiss();
+      onDismissRef.current();
     });
-  }, [translateY, onDismiss]);
+  };
 
   useEffect(() => {
     if (visible) {
@@ -45,9 +47,9 @@ export const Toast: React.FC<ToastProps> = ({
 
       return () => clearTimeout(timer);
     } else {
-      hideToast();
+      translateY.setValue(-100);
     }
-  }, [visible, duration, translateY, hideToast]);
+  }, [visible, duration, translateY]);
 
   if (!visible) return null;
 

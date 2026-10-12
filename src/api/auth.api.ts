@@ -10,12 +10,30 @@ export interface RegisterPayload {
   name: string;
   email: string;
   password: string;
+  role?: string;
+  membershipStatus?: string;
   profile?: {
     headline?: string;
     phone?: string;
+    location?: string;
+    bio?: string;
     company?: string;
     position?: string;
     category?: string;
+    otherCategory?: string;
+    skills?: string[];
+    experience?: Array<{
+      company: string;
+      position: string;
+      from: string;
+      to: string;
+      description?: string;
+    }>;
+    references?: Array<{
+      name: string;
+      contact: string;
+    }>;
+    [key: string]: any;
   };
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/context/AuthContext';
@@ -27,6 +28,8 @@ import {
   Clock,
   ArrowRight,
   ChevronRight,
+  MessageSquare,
+  Lightbulb,
 } from 'lucide-react-native';
 
 export default function DashboardScreen() {
@@ -48,9 +51,9 @@ export default function DashboardScreen() {
   const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const statCardWidth = width >= 768 ? '23.5%' : '48.5%';
+  const statCardWidth = useMemo(() => (width >= 768 ? '23.5%' : '48.5%'), [width]);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       const [statsData, activityData] = await Promise.allSettled([
         userApi.getDashboardStats(),
@@ -76,55 +79,22 @@ export default function DashboardScreen() {
     } catch (err) {
       console.error('Failed loading dashboard data:', err);
     }
-  };
-
-  useEffect(() => {
-    let isMounted = true;
-    const loadData = async () => {
-      try {
-        const [statsData, activityData] = await Promise.allSettled([
-          userApi.getDashboardStats(),
-          userApi.getRecentActivity(),
-        ]);
-
-        if (isMounted) {
-          if (statsData.status === 'fulfilled' && statsData.value) {
-            const d = statsData.value as any;
-            setStats({
-              applications: d.applications ?? d.applicationsCount ?? 0,
-              applicationsChange: d.applicationsChange ?? 12,
-              savedJobs: d.savedJobs ?? d.savedJobsCount ?? 0,
-              savedJobsChange: d.savedJobsChange ?? 5,
-              eventsRegistered: d.eventsRegistered ?? d.eventsCount ?? 0,
-              eventsChange: d.eventsChange ?? 8,
-              connections: d.connections ?? d.connectionsCount ?? 0,
-              connectionsChange: d.connectionsChange ?? 15,
-            });
-          }
-          if (activityData.status === 'fulfilled' && activityData.value) {
-            setRecentActivity(activityData.value);
-          }
-        }
-      } catch (err) {
-        console.error('Failed loading dashboard data:', err);
-      }
-    };
-    loadData();
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
-  const onRefresh = async () => {
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([refreshUser(), loadDashboardData()]);
     setRefreshing(false);
-  };
+  }, [refreshUser, loadDashboardData]);
 
   const userName = user?.name || 'Member';
   const firstName = userName.split(' ')[0] || 'Member';
 
-  const getTimeAgo = (dateStr?: string) => {
+  const getTimeAgo = useCallback((dateStr?: string) => {
     if (!dateStr) return 'Recently';
     const seconds = Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / 1000);
     if (seconds < 60) return 'Just now';
@@ -134,9 +104,9 @@ export default function DashboardScreen() {
     if (hours < 24) return `${hours} hours ago`;
     const days = Math.floor(hours / 24);
     return `${days} days ago`;
-  };
+  }, []);
 
-  const getActivityIcon = (type: string) => {
+  const getActivityIcon = useCallback((type: string) => {
     switch (type) {
       case 'job_application':
         return <Briefcase size={15} color="#FFFFFF" />;
@@ -149,9 +119,9 @@ export default function DashboardScreen() {
       default:
         return <Briefcase size={15} color="#FFFFFF" />;
     }
-  };
+  }, []);
 
-  const getActivityBg = (type: string) => {
+  const getActivityBg = useCallback((type: string) => {
     switch (type) {
       case 'job_application':
         return '#2563EB';
@@ -164,17 +134,23 @@ export default function DashboardScreen() {
       default:
         return '#2563EB';
     }
-  };
+  }, []);
 
   return (
     <View style={styles.safeContainer}>
       {/* Fixed Top Navbar */}
       <Header />
 
-      {/* Scrollable Dashboard Content */}
+      {/* Smooth High-Performance Scrollable Dashboard Content */}
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 28, 40) }]}
         showsVerticalScrollIndicator={false}
+        overScrollMode="never"
+        scrollEventThrottle={16}
+        removeClippedSubviews={Platform.OS === 'android'}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled={true}
+        decelerationRate="normal"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
         }
@@ -321,29 +297,46 @@ export default function DashboardScreen() {
 
         {/* 4. KEA Membership Feedback Section */}
         <View style={styles.sectionContainerCard}>
-          <Text style={styles.cardHeading}>KEA Membership Feedback</Text>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardHeading}>KEA Membership Feedback</Text>
+            <View style={[styles.iconBadgeMini, { backgroundColor: '#EFF6FF' }]}>
+              <MessageSquare size={16} color="#2563EB" />
+            </View>
+          </View>
           <Text style={styles.cardSub}>Help us improve your experience</Text>
 
           <TouchableOpacity
             style={styles.feedbackOptionBox}
-            onPress={() => router.push('/help')}
+            onPress={() => router.push({ pathname: '/feedback', params: { category: 'General Feedback' } })}
             activeOpacity={0.7}
           >
-            <Text style={styles.feedbackOptionText}>Feedback on membership experience</Text>
+            <View style={styles.feedbackOptionLeft}>
+              <View style={[styles.feedbackMiniIcon, { backgroundColor: '#EFF6FF' }]}>
+                <MessageSquare size={15} color="#2563EB" />
+              </View>
+              <Text style={styles.feedbackOptionText}>Feedback on membership experience</Text>
+            </View>
+            <ChevronRight size={17} color="#94A3B8" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.feedbackOptionBox}
-            onPress={() => router.push('/help')}
+            onPress={() => router.push({ pathname: '/feedback', params: { category: 'Feature Request' } })}
             activeOpacity={0.7}
           >
-            <Text style={styles.feedbackOptionText}>Feature request</Text>
+            <View style={styles.feedbackOptionLeft}>
+              <View style={[styles.feedbackMiniIcon, { backgroundColor: '#FEF3C7' }]}>
+                <Lightbulb size={15} color="#D97706" />
+              </View>
+              <Text style={styles.feedbackOptionText}>Feature request</Text>
+            </View>
+            <ChevronRight size={17} color="#94A3B8" />
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => router.push('/help')}
+            onPress={() => router.push('/feedback')}
             activeOpacity={0.7}
-            style={{ marginTop: 4 }}
+            style={styles.feedbackBottomLinkTouch}
           >
             <Text style={styles.tealLinkText}>Submit any other feedback →</Text>
           </TouchableOpacity>
@@ -420,11 +413,15 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   safeContainer: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#F8FAFC',
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 16,
+    width: '100%',
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
 
   // 1. Hero Banner
@@ -615,20 +612,50 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  iconBadgeMini: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   // Feedback Section
   feedbackOptionBox: {
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
-    paddingVertical: 13,
+    paddingVertical: 12,
     paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  feedbackOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  feedbackMiniIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
   feedbackOptionText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#1E293B',
+    flex: 1,
+  },
+  feedbackBottomLinkTouch: {
+    marginTop: 4,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
   },
   tealLinkText: {
     fontSize: 13,

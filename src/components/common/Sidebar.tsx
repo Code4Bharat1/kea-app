@@ -12,6 +12,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, usePathname } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { Colors } from '../../constants/theme';
+import { KeaLogoBanner } from './KeaLogoBanner';
 import {
   LayoutGrid,
   User,
@@ -25,6 +27,10 @@ import {
   Image as ImageIcon,
   Settings,
   LogOut,
+  ChevronRight,
+  Sparkles,
+  HelpCircle,
+  MessageSquareText,
   X,
 } from 'lucide-react-native';
 
@@ -32,16 +38,52 @@ interface SidebarProps {
   onClose?: () => void;
   hideHeader?: boolean;
   style?: any;
+  onNavigate?: (route: string) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onClose, hideHeader = false, style }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  onClose,
+  hideHeader = false,
+  style,
+  onNavigate,
+}) => {
   const insets = useSafeAreaInsets();
   const pathname = usePathname() || '/';
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   const handleNavigate = (route: string) => {
     if (onClose) onClose();
-    router.push(route as any);
+
+    const isDashboardTarget =
+      route === '/' || route === '/(tabs)' || route === '/(tabs)/index' || route === '/dashboard';
+    const isCurrentlyDashboard =
+      pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/index';
+
+    // Prevent duplicate screen in history if already on this screen
+    if (isDashboardTarget && isCurrentlyDashboard) {
+      return;
+    }
+    if (!isDashboardTarget && (pathname === route || pathname === `${route}/`)) {
+      return;
+    }
+
+    if (onNavigate) {
+      onNavigate(route);
+    }
+
+    // Dashboard navigation: navigate cleanly to /(tabs) without triggering index.tsx splash
+    if (isDashboardTarget) {
+      router.navigate('/(tabs)' as any);
+      return;
+    }
+
+    // Mark route as opened from sidebar so that going back returns directly to sidebar
+    requestAnimationFrame(() => {
+      router.push({
+        pathname: route as any,
+        params: { fromSidebar: '1' },
+      } as any);
+    });
   };
 
   const handleLogout = () => {
@@ -52,13 +94,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose, hideHeader = false, s
     };
 
     if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined' && window.confirm('Are you sure you want to logout?')) {
+      if (typeof window !== 'undefined' && window.confirm('Are you sure you want to sign out?')) {
         doLogout();
       }
     } else {
-      Alert.alert('Sign Out', 'Are you sure you want to logout?', [
+      Alert.alert('Sign Out', 'Are you sure you want to sign out of your account?', [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: doLogout },
+        { text: 'Sign Out', style: 'destructive', onPress: doLogout },
       ]);
     }
   };
@@ -67,13 +109,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose, hideHeader = false, s
     if (route === '/' || route === '/(tabs)' || route === '/dashboard') {
       return pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/index';
     }
-    return pathname.startsWith(route);
+    return pathname === route || pathname.startsWith(`${route}/`);
   };
+
+
+
+  const renderSectionHeader = (title: string, badge?: string) => (
+    <View style={styles.sectionHeaderRow}>
+      <Text style={styles.sectionHeading}>{title}</Text>
+      {badge ? (
+        <View style={styles.sectionBadge}>
+          <Text style={styles.sectionBadgeText}>{badge}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
 
   const renderMenuItem = (
     label: string,
     route: string,
     IconComponent: any,
+    iconTint: string,
     exactMatchCheck?: boolean
   ) => {
     const active = exactMatchCheck
@@ -84,82 +140,146 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose, hideHeader = false, s
       <TouchableOpacity
         style={[styles.menuItem, active && styles.menuItemActive]}
         onPress={() => handleNavigate(route)}
-        activeOpacity={0.7}
+        activeOpacity={0.72}
       >
         <View style={styles.menuLeftRow}>
-          <IconComponent
-            size={19}
-            color={active ? '#0D9488' : '#64748B'}
-            style={styles.menuIcon}
-          />
-          <Text style={[styles.menuText, active && styles.menuTextActive]}>{label}</Text>
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: active ? '#DBEAFE' : iconTint },
+            ]}
+          >
+            <IconComponent
+              size={18}
+              color={active ? Colors.primary : '#475569'}
+              strokeWidth={active ? 2.3 : 1.8}
+            />
+          </View>
+          <Text style={[styles.menuText, active && styles.menuTextActive]}>
+            {label}
+          </Text>
         </View>
+
+        {active ? (
+          <View style={styles.activePill}>
+            <Text style={styles.activePillText}>Active</Text>
+          </View>
+        ) : (
+          <ChevronRight size={16} color="#CBD5E1" />
+        )}
       </TouchableOpacity>
     );
   };
 
   return (
     <View style={[styles.sidebarContainer, style]}>
-      {/* Compact Dark Navy Header Banner with Large Centered Logo */}
+      {/* Premium Dark Royal Header Banner */}
       {!hideHeader && (
-        <View style={[styles.headerSection, { paddingTop: Math.max(8, insets.top + 4) }]}>
-          <View style={styles.logoCenterWrapper}>
-            <Image
-              source={require('../../../assets/logo1.png')}
-              style={styles.sidebarLogoImage}
-              resizeMode="contain"
-            />
-          </View>
-          {onClose && (
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+        <View
+          style={[
+            styles.headerSection,
+            { paddingTop: Math.max(16, insets.top + 8) },
+          ]}
+        >
+          {onClose ? (
+            <TouchableOpacity
+              style={[styles.closeBtn, { top: Math.max(14, insets.top + 6) }]}
+              onPress={onClose}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
               <X size={18} color="#FFFFFF" />
             </TouchableOpacity>
-          )}
+          ) : null}
+
+          {/* Centered KEA Logo Banner */}
+          <View style={styles.logoCenterWrapper}>
+            <KeaLogoBanner size="medium" />
+          </View>
+
+          {/* Gold Accent Divider */}
+          <View style={styles.headerGoldLine} />
         </View>
       )}
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* SECTION 1: MAIN */}
-        <Text style={styles.sectionHeading}>MAIN</Text>
-        {renderMenuItem('Dashboard', '/', LayoutGrid)}
-        {renderMenuItem('My Profile', '/profile', User)}
+      {/* Main Spacious Menu Scroll Content */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        overScrollMode="never"
+        keyboardShouldPersistTaps="handled"
+        removeClippedSubviews={Platform.OS === 'android'}
+      >
+        {/* SECTION 1: MAIN NAVIGATION */}
+        {renderSectionHeader('MAIN PLATFORM')}
+        {renderMenuItem('Dashboard', '/(tabs)', LayoutGrid, '#EFF6FF')}
+        {renderMenuItem('Member Directory', '/members', Users, '#F0FDF4')}
+        {renderMenuItem('My Profile', '/profile', User, '#FAF5FF')}
 
-        {/* SECTION 2: CAREER */}
-        <Text style={styles.sectionHeading}>CAREER</Text>
-        {renderMenuItem('Find & Post Jobs', '/jobs', Briefcase)}
+        {/* SECTION 2: CAREER & TOOLS */}
+        {renderSectionHeader('CAREER & TOOLS')}
+        {renderMenuItem('Find & Post Jobs', '/jobs', Briefcase, '#FFFBEB')}
+        {renderMenuItem('Engineering Tools', '/tools', Wrench, '#F0F9FF')}
 
-        {/* SECTION 3: KNOWLEDGE */}
-        <Text style={styles.sectionHeading}>KNOWLEDGE</Text>
-        {renderMenuItem('Knowledge Hub', '/knowledge', Library)}
-        {renderMenuItem('Tools Library', '/tools', Wrench)}
-        {renderMenuItem('Seminars / Webinars', '/events', Users)}
-        {renderMenuItem('Technical Insights & Blogs', '/blogs', FileText)}
+        {/* SECTION 3: KNOWLEDGE & LEARNING */}
+        {renderSectionHeader('KNOWLEDGE & INSIGHTS')}
+        {renderMenuItem('Knowledge Hub', '/knowledge', Library, '#EEF2FF')}
+        {renderMenuItem('Seminars & Events', '/events', Calendar, '#FDF2F8')}
+        {renderMenuItem('Insights & Blogs', '/blogs', FileText, '#F0FDFA')}
 
-        {/* SECTION 4: COMMUNITY */}
-        <Text style={styles.sectionHeading}>COMMUNITY</Text>
-        {renderMenuItem('Forums', '/community', MessageSquare, true)}
-        {renderMenuItem('Groups', '/community/groups', Users)}
-        {renderMenuItem('Mentorship', '/community/mentorship', Users)}
-        {renderMenuItem('Events', '/events', Calendar)}
-        {renderMenuItem('Good Wishes & Testimonials', '/gallery', ImageIcon)}
+        {/* SECTION 4: COMMUNITY NETWORK */}
+        {renderSectionHeader('COMMUNITY NETWORK')}
+        {renderMenuItem('Discussion Forums', '/community', MessageSquare, '#F5F3FF', true)}
+        {renderMenuItem('Regional Groups', '/community/groups', Users, '#EFF6FF')}
+        {renderMenuItem('Mentorship Network', '/community/mentorship', Sparkles, '#FFFBEB')}
+        {renderMenuItem('Good Wishes & Gallery', '/gallery', ImageIcon, '#ECFDF5')}
 
-        {/* SECTION 5: ACCOUNT */}
-        <View style={styles.divider} />
-        <Text style={styles.sectionHeading}>ACCOUNT</Text>
-        {renderMenuItem('Settings', '/settings', Settings)}
+        {/* SECTION 5: SUPPORT & PREFERENCES */}
+        <View style={styles.sectionDivider} />
+        {renderSectionHeader('SUPPORT & SETTINGS')}
+        {renderMenuItem('Settings', '/settings', Settings, '#F1F5F9')}
+        {renderMenuItem('Help & FAQ', '/help', HelpCircle, '#F0F9FF')}
+        {renderMenuItem('Send Feedback', '/feedback', MessageSquareText, '#FAF5FF')}
 
-        <TouchableOpacity style={[styles.menuItem, styles.logoutItem]} onPress={handleLogout} activeOpacity={0.7}>
-          <View style={styles.menuLeftRow}>
-            <LogOut size={19} color="#EF4444" style={styles.menuIcon} />
-            <Text style={styles.logoutText}>Logout</Text>
+        {/* SIGN OUT BUTTON */}
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={handleLogout}
+          activeOpacity={0.78}
+        >
+          <View style={styles.logoutLeftRow}>
+            <View style={styles.logoutIconBox}>
+              <LogOut size={17} color="#DC2626" />
+            </View>
+            <View>
+              <Text style={styles.logoutTitle}>Sign Out</Text>
+              <Text style={styles.logoutSub}>Leave current session</Text>
+            </View>
           </View>
+          <ChevronRight size={16} color="#FCA5A5" />
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Footer */}
-      <View style={styles.footerSection}>
-        <Text style={styles.footerTitle}>KEA Community Resources</Text>
-        <Text style={styles.footerSub}>Managed by KEA Board</Text>
+      {/* Footer Section */}
+      <View
+        style={[
+          styles.footerSection,
+          { paddingBottom: Math.max(16, insets.bottom + 12) },
+        ]}
+      >
+        <View style={styles.footerCard}>
+          <View style={styles.footerTopRow}>
+            <View style={styles.onlineDot} />
+            <Text style={styles.footerTitle}>KEA App v1.0.0</Text>
+            <View style={styles.activeTag}>
+              <Text style={styles.activeTagText}>Active</Text>
+            </View>
+          </View>
+          <Text style={styles.footerSub}>
+            Kokani Engineers & Professional Association
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -168,112 +288,232 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose, hideHeader = false, s
 const styles = StyleSheet.create({
   sidebarContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     width: '100%',
   },
+
+  // Header Section
   headerSection: {
-    backgroundColor: '#0D2847',
-    paddingBottom: 8,
-    paddingHorizontal: 8,
-    borderBottomWidth: 3,
-    borderBottomColor: '#F59E0B',
+    backgroundColor: '#0A1330',
+    paddingBottom: 14,
+    paddingHorizontal: 16,
+    position: 'relative',
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-    minHeight: 85,
-    width: '100%',
   },
   logoCenterWrapper: {
     width: '100%',
-    height: 85,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  sidebarLogoImage: {
-    width: '100%',
-    height: '100%',
-    maxWidth: 290,
+    marginTop: 8,
+    marginBottom: 4,
   },
   closeBtn: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    right: 14,
     zIndex: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
   },
+  headerGoldLine: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 2.5,
+    backgroundColor: '#F59E0B',
+  },
+
+  // Scroll Content
   scrollContent: {
     paddingVertical: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 28,
+  },
+
+  // Section Headers
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 18,
+    marginBottom: 8,
+    paddingHorizontal: 6,
   },
   sectionHeading: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: '#64748B',
     letterSpacing: 1.1,
-    marginTop: 16,
-    marginBottom: 6,
-    marginLeft: 10,
     textTransform: 'uppercase',
   },
+  sectionBadge: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  sectionBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 14,
+    marginHorizontal: 6,
+  },
+
+  // Menu Items
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 3,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    marginBottom: 4,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  menuItemActive: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   menuLeftRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
-  menuItemActive: {
-    backgroundColor: '#E6FFFA',
-  },
-  menuIcon: {
-    marginRight: 12,
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 11,
   },
   menuText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '600',
     color: '#334155',
   },
   menuTextActive: {
-    color: '#0D9488',
+    color: Colors.primary,
     fontWeight: '700',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 14,
-    marginHorizontal: 8,
+  activePill: {
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 8,
   },
-  logoutItem: {
-    marginTop: 2,
+  activePillText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: Colors.primary,
   },
-  logoutText: {
+
+  // Sign Out
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 18,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  logoutLeftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+  logoutIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#EF4444',
+    color: '#DC2626',
   },
+  logoutSub: {
+    fontSize: 11,
+    color: '#EF4444',
+    marginTop: 1,
+  },
+
+  // Footer
   footerSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingTop: 10,
     backgroundColor: '#F8FAFC',
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
   },
+  footerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  footerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 3,
+  },
+  onlineDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#10B981',
+    marginRight: 7,
+  },
   footerTitle: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#334155',
+    color: '#1E293B',
+    flex: 1,
+  },
+  activeTag: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  activeTagText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#15803D',
   },
   footerSub: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#64748B',
-    marginTop: 2,
+    fontWeight: '500',
+    lineHeight: 14,
   },
 });

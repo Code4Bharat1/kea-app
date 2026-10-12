@@ -6,6 +6,7 @@ export * from './ErrorState';
 export * from './Header';
 export * from './Input';
 export * from './KeaLogoBanner';
+export * from './KeaLogo';
 export * from './Loader';
 export * from './Toast';
 export * from './Sidebar';

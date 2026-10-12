@@ -28,7 +28,7 @@ export default function IndexScreen() {
           style={styles.fullLogoImage}
           resizeMode="contain"
         />
-        <Text style={styles.title}>Kokani Engineers Association</Text>
+        <Text style={styles.title}>Kokani Engineers & Professional Association</Text>
         <Text style={styles.subtitle}>Empowering Engineering Excellence</Text>
       </View>
 

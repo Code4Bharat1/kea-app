@@ -34,51 +34,12 @@ import {
   X,
 } from 'lucide-react-native';
 
+import { JOB_CATEGORIES_LIST as JOB_CATEGORIES } from '../../src/constants/jobCategories';
+
 const EMPLOYMENT_TYPES = ['Full-time', 'Part-time', 'Contract', 'Internship'];
 const WORK_MODES = ['On-site', 'Hybrid', 'Remote'];
 const EXP_LEVELS = ['Entry Level', 'Mid-Level (2-5 yrs)', 'Senior (5+ yrs)', 'Lead / Executive'];
 const SALARY_PERIODS = ['Per Annum', 'Per Month'];
-
-const JOB_CATEGORIES = [
-  'Software Engineering',
-  'Civil Engineering',
-  'Mechanical Engineering',
-  'Electrical Engineering',
-  'Electronics Engineering',
-  'Electronics and Telecommunications',
-  'Instrumentation Engineering',
-  'Chemical Engineering',
-  'Computer Engineering',
-  'Automobile Engineering',
-  'Aeronautical Engineering',
-  'Aerospace Engineering',
-  'Petrochemical Engineering',
-  'Polymer Engineering',
-  'Agricultural Engineering',
-  'Biomedical Engineering',
-  'Industrial Engineering',
-  'Production Engineering',
-  'Mining Engineering',
-  'Metallurgical Engineering',
-  'Environmental Engineering',
-  'Marine Engineering',
-  'Textile Engineering',
-  'Architecture',
-  'Data Science and Engineering',
-  'Artificial Intelligence & Machine Learning',
-  'Robotics & Automation',
-  'Cybersecurity Engineering',
-  'Cloud Engineering',
-  'Mechatronics Engineering',
-  'Nuclear Engineering',
-  'Materials Science and Engineering',
-  'Systems Engineering',
-  'Biotechnology Engineering',
-  'Food Technology Engineering',
-  'Geotechnical Engineering',
-  'Safety Engineering',
-  'Other',
-];
 
 export default function PostJobScreen() {
   // Section 1: Job Information
@@ -152,18 +113,29 @@ export default function PostJobScreen() {
         experienceLevel: expRequired,
         salary: salaryText,
         description: description.trim(),
-        requirements: skills.trim() ? skills.split(',').map((s) => s.trim()) : [],
+        requirements: skills.trim()
+          ? skills.split(',').map((s) => s.trim()).filter(Boolean)
+          : [qualifications.trim() || 'Degree in relevant engineering field'],
         deadline: deadline.trim() || undefined,
         applyUrl: appContact.trim() || undefined,
-      });
+        tags: skills.trim() ? skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
+        skills: skills.trim() ? skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
+      } as any);
 
       const successMsg = 'Your engineering job opening has been published successfully!';
+      const navigateBack = () => {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.push('/jobs' as any);
+        }
+      };
       if (Platform.OS === 'web') {
         window.alert(successMsg);
-        router.push('/(tabs)/jobs');
+        navigateBack();
       } else {
         Alert.alert('Success 🎉', successMsg, [
-          { text: 'OK', onPress: () => router.push('/(tabs)/jobs') },
+          { text: 'OK', onPress: navigateBack },
         ]);
       }
     } catch (err: any) {
@@ -175,8 +147,8 @@ export default function PostJobScreen() {
     }
   };
 
-  const filteredCategories = JOB_CATEGORIES.filter((cat) =>
-    cat.toLowerCase().includes(categorySearch.toLowerCase())
+  const filteredCategories = (JOB_CATEGORIES || []).filter((cat) =>
+    !categorySearch || !categorySearch.trim() || cat.toLowerCase().includes(categorySearch.toLowerCase().trim())
   );
 
   return (
@@ -440,12 +412,26 @@ export default function PostJobScreen() {
       </ScrollView>
 
       {/* Category Modal */}
-      <Modal visible={showCategoryModal} transparent animationType="slide">
+      <Modal
+        visible={showCategoryModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCategoryModal(false)}
+      >
         <View style={styles.modalPickerOverlay}>
-          <View style={[styles.modalPickerCard, { maxHeight: '80%' }]}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowCategoryModal(false)}
+          />
+
+          <View style={[styles.modalPickerCard, { height: '82%', maxHeight: 600 }]}>
             <View style={styles.modalCategoryHeader}>
               <Text style={styles.modalPickerTitle}>Select Job Category</Text>
-              <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
+              <TouchableOpacity
+                onPress={() => setShowCategoryModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
                 <X size={20} color="#64748B" />
               </TouchableOpacity>
             </View>
@@ -459,13 +445,26 @@ export default function PostJobScreen() {
                 value={categorySearch}
                 onChangeText={setCategorySearch}
               />
+              {categorySearch ? (
+                <TouchableOpacity onPress={() => setCategorySearch('')}>
+                  <X size={16} color="#94A3B8" />
+                </TouchableOpacity>
+              ) : null}
             </View>
 
-            <ScrollView style={{ flex: 1 }}>
+            <ScrollView
+              style={{ flex: 1, width: '100%' }}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
               {filteredCategories.map((cat) => (
                 <TouchableOpacity
                   key={cat}
-                  style={styles.modalPickerOptionItem}
+                  style={[
+                    styles.modalPickerOptionItem,
+                    category === cat && { backgroundColor: '#F0FDFA' },
+                  ]}
                   onPress={() => {
                     setCategory(cat);
                     setShowCategoryModal(false);

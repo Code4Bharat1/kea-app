@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform } from 'react-native';
 import { Colors } from '../src/constants/theme';
 import { Header } from '../src/components/common/Header';
 import { Card } from '../src/components/common/Card';
-import { HelpCircle, Mail, Phone, MapPin, Globe, ExternalLink } from 'lucide-react-native';
+import { HelpCircle, Mail, Phone, MapPin, Globe, ExternalLink, MessageSquare, ChevronRight } from 'lucide-react-native';
+import { router } from 'expo-router';
 
 export default function HelpScreen() {
   const handleEmailSupport = () => {
@@ -41,7 +42,13 @@ export default function HelpScreen() {
     <View style={styles.container}>
       <Header title="Help & Support" showBack showNotif={false} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        overScrollMode="never"
+        scrollEventThrottle={16}
+        removeClippedSubviews={Platform.OS === 'android'}
+      >
         {/* Support Banner Card */}
         <Card style={styles.bannerCard}>
           <View style={styles.bannerRow}>
@@ -58,6 +65,21 @@ export default function HelpScreen() {
         </Card>
 
         {/* Direct Contact Options */}
+        <TouchableOpacity
+          style={[styles.contactCard, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}
+          onPress={() => router.push('/feedback')}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: '#DBEAFE' }]}>
+            <MessageSquare size={20} color="#2563EB" />
+          </View>
+          <View style={styles.contactTextContent}>
+            <Text style={[styles.contactLabel, { color: '#1E40AF' }]}>Submit Feedback & Support</Text>
+            <Text style={[styles.contactValue, { color: '#3B82F6' }]}>Report issues or share your suggestions</Text>
+          </View>
+          <ChevronRight size={18} color="#2563EB" />
+        </TouchableOpacity>
+
         <Text style={styles.sectionTitle}>CONTACT US</Text>
 
         <TouchableOpacity style={styles.contactCard} onPress={handleEmailSupport} activeOpacity={0.7}>

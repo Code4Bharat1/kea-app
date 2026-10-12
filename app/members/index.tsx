@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, RefreshControl, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/theme';
 import { Header } from '../../src/components/common/Header';
@@ -18,42 +18,31 @@ export default function MembersDirectoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async (query: string) => {
     try {
-      const data = await userApi.getMembers(searchQuery);
+      const data = await userApi.getMembers(query);
       setMembers(data);
     } catch (err) {
       console.error('Failed fetching members:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    const loadData = async () => {
-      try {
-        const data = await userApi.getMembers(searchQuery);
-        if (isMounted) setMembers(data);
-      } catch (err) {
-        console.error('Failed fetching members:', err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-    loadData();
-    return () => {
-      isMounted = false;
-    };
-  }, [searchQuery]);
+    const timer = setTimeout(() => {
+      fetchMembers(searchQuery);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery, fetchMembers]);
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchMembers();
+    await fetchMembers(searchQuery);
     setRefreshing(false);
-  };
+  }, [fetchMembers, searchQuery]);
 
-  const renderMemberCard = ({ item }: { item: User }) => {
+  const renderMemberCard = useCallback(({ item }: { item: User }) => {
     const fullName = item.name || item.email;
     const profession = item.profile?.position || item.profile?.headline || item.profile?.company;
     const location = item.profile?.location;
@@ -91,7 +80,7 @@ export default function MembersDirectoryScreen() {
         </View>
       </Card>
     );
-  };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -113,6 +102,13 @@ export default function MembersDirectoryScreen() {
           keyExtractor={(item) => item._id}
           renderItem={renderMemberCard}
           contentContainerStyle={styles.listContent}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
+          showsVerticalScrollIndicator={false}
+          overScrollMode="never"
+          keyboardShouldPersistTaps="handled"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
           ListEmptyComponent={
             <EmptyState

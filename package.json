@@ -8,6 +8,7 @@
     "expo": "~57.0.26",
     "expo-constants": "~57.0.20",
     "expo-document-picker": "~57.0.3",
+    "expo-linear-gradient": "~12.0.0",
     "expo-linking": "~57.0.11",
     "expo-local-authentication": "~57.0.3",
     "expo-notifications": "~57.0.21",
