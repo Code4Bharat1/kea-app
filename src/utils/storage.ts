@@ -83,5 +83,32 @@ export const storage = {
 
   async clearSession(): Promise<void> {
     await Promise.all([this.removeToken(), this.removeUserData()]);
+  },
+
+  async getRememberEmail(): Promise<string | null> {
+    try {
+      if (Platform.OS === 'web') {
+        return typeof window !== 'undefined' ? localStorage.getItem('kea_remember_email') : null;
+      }
+      return await SecureStore.getItemAsync('kea_remember_email');
+    } catch {
+      return null;
+    }
+  },
+
+  async setRememberEmail(email: string | null): Promise<void> {
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined') {
+          if (email) localStorage.setItem('kea_remember_email', email);
+          else localStorage.removeItem('kea_remember_email');
+        }
+        return;
+      }
+      if (email) await SecureStore.setItemAsync('kea_remember_email', email);
+      else await SecureStore.deleteItemAsync('kea_remember_email');
+    } catch {
+      // ignore
+    }
   }
 };

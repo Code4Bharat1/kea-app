@@ -14,6 +14,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   Mail,
   Lock,
@@ -22,47 +23,71 @@ import {
   Fingerprint,
   AlertCircle,
   ChevronRight,
+  Check,
 } from 'lucide-react-native';
 
 import { useAuth } from '../../src/context/AuthContext';
-import { apiClient, getCleanErrorMessage } from '../../src/api/client';
 import { storage } from '../../src/utils/storage';
 import { securityService } from '../../src/utils/security';
 import { biometricService } from '../../src/services/biometricService';
 import { PatternLockModal } from '../../src/components/common/PatternLockModal';
-
 import * as LocalAuthentication from 'expo-local-authentication';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '../../src/constants/theme';
 
-export default function UserLoginScreen() {
-  const { loginWithBiometrics, refreshUser } = useAuth();
+export default function LoginScreen() {
+  const { login, loginWithBiometrics, user: currentUser } = useAuth();
 
+  // Form State
   const [formData, setFormData] = useState({ email: '', password: '' });
+  const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+
+  // Security / Biometrics State
   const [canUseBiometrics, setCanUseBiometrics] = useState<boolean>(true);
   const [showPatternLock, setShowPatternLock] = useState<boolean>(false);
   const [emailFocused, setEmailFocused] = useState<boolean>(false);
   const [passwordFocused, setPasswordFocused] = useState<boolean>(false);
   const passwordRef = useRef<TextInput>(null);
 
+  // Load Remembered Email and Security Options on mount
   useEffect(() => {
-    const checkSecurityOptions = async () => {
+    const initScreen = async () => {
+      // 1. Check remembered email
+      try {
+        const savedEmail = await storage.getRememberEmail();
+        if (savedEmail) {
+          setFormData((prev) => ({ ...prev, email: savedEmail }));
+          setRememberMe(true);
+        }
+      } catch {
+        // ignore
+      }
+
+      // 2. Check biometrics and pattern lock
       if (Platform.OS === 'web') {
         setCanUseBiometrics(false);
         return;
       }
       setCanUseBiometrics(true);
-      const isPatternOn = await securityService.isPatternEnabled();
-      const savedToken = await storage.getToken();
-      if (isPatternOn && savedToken) {
-        setShowPatternLock(true);
+      try {
+        const isPatternOn = await securityService.isPatternEnabled();
+        const savedToken = await storage.getToken();
+        if (isPatternOn && savedToken) {
+          setShowPatternLock(true);
+        }
+      } catch {
+        // ignore
       }
     };
-    checkSecurityOptions();
+
+    initScreen();
   }, []);
+
+  const handleInputChange = (field: 'email' | 'password', value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (error) setError('');
+  };
 
   const handleBiometricLogin = async () => {
     if (Platform.OS === 'web') {
@@ -78,7 +103,7 @@ export default function UserLoginScreen() {
         return;
       }
       if (!isEnrolled) {
-        Alert.alert('Biometrics Not Enrolled', 'No Fingerprint or Face ID found. Please set up biometrics in your device settings first.');
+        Alert.alert('Biometrics Not Enrolled', 'No Fingerprint or Face ID found. Please configure biometrics in your device settings.');
         return;
       }
       const savedBioToken = await biometricService.getSavedToken();
@@ -89,14 +114,23 @@ export default function UserLoginScreen() {
           cancelLabel: 'Cancel',
         });
         if (scanResult.success) {
-          Alert.alert('Biometric Verified ✅', 'Scan successful! Log in once with Email & Password to enable instant biometric access.');
+          Alert.alert('Biometric Verified ✅', 'Log in once with Email & Password to enable instant biometric access.');
         } else if (scanResult.error !== 'user_cancel') {
           setError('Biometric authentication failed. Please enter your password.');
         }
         return;
       }
+
       const result = await loginWithBiometrics();
-      if (result.success) { router.replace('/(tabs)'); return; }
+      if (result.success) {
+        const storedUser = await storage.getUserData();
+        if (storedUser?.role === 'admin' || storedUser?.role === 'superadmin') {
+          router.replace('/(admin)');
+        } else {
+          router.replace('/(tabs)');
+        }
+        return;
+      }
       if (result.reason === 'USER_CANCELLED') return;
       if (result.reason === 'LOCKOUT') {
         setError('Biometric locked due to multiple failed attempts. Please use your password.');
@@ -110,51 +144,78 @@ export default function UserLoginScreen() {
     }
   };
 
-  const handleInputChange = (field: 'email' | 'password', value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    setError('');
-  };
-
   const handleLogin = async () => {
-    if (!formData.email.trim()) { setError('Please enter your email address'); return; }
-    if (!formData.password) { setError('Please enter your password'); return; }
+    const cleanEmail = formData.email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setError('Please enter your email address');
+      return;
+    }
+    if (!formData.password) {
+      setError('Please enter your password');
+      return;
+    }
+
     setError('');
     setLoading(true);
+
     try {
-      const cleanEmail = formData.email.trim().toLowerCase();
-      const response = await apiClient.post<any>('/auth/login', {
+      // Authenticate via unified login handler (handles both User and Admin accounts)
+      const authResponse = await login({
         email: cleanEmail,
         password: formData.password,
       });
-      const data = response.data;
-      const token = data.token || data.accessToken || data.data?.token;
-      const user =
-        data.user ||
-        data.data?.user ||
-        (typeof data.data === 'object' && data.data?._id ? data.data : undefined);
-      if (!token || !user) throw new Error(data?.message || 'Invalid login response from server.');
-      if (user.role !== 'user') { setError('Please use admin login for admin access.'); return; }
-      if (user.membershipStatus === 'pending') { setError('Your membership is pending admin approval.'); return; }
-      if (user.membershipStatus === 'inactive') { setError('Your membership has been deactivated.'); return; }
-      await storage.setToken(token);
-      await storage.setUserData(user);
-      await refreshUser();
-      const { hasHardware, isEnrolled } = await biometricService.checkAvailability();
-      const isBioEnabled = await biometricService.isEnabled();
-      if (hasHardware && isEnrolled && Platform.OS !== 'web') {
-        await biometricService.enableBiometric(token);
-        if (!isBioEnabled) {
-          Alert.alert('Biometric Login Enabled ✅', 'Fingerprint / Face ID login is now active for fast access!', [
-            { text: 'Great!', onPress: () => router.replace('/(tabs)') },
-          ]);
-        } else {
-          router.replace('/(tabs)');
-        }
+
+      const authenticatedUser = authResponse.user;
+      if (!authenticatedUser || !authenticatedUser.role) {
+        throw new Error('Account role could not be verified by backend authorization.');
+      }
+
+      // Handle "Remember Me"
+      if (rememberMe) {
+        await storage.setRememberEmail(cleanEmail);
       } else {
+        await storage.setRememberEmail(null);
+      }
+
+      // Mobile Biometrics prompt if applicable
+      if (Platform.OS !== 'web') {
+        try {
+          const { hasHardware, isEnrolled } = await biometricService.checkAvailability();
+          const isBioEnabled = await biometricService.isEnabled();
+          if (hasHardware && isEnrolled) {
+            await biometricService.enableBiometric(authResponse.token);
+          }
+        } catch {
+          // non-critical, continue
+        }
+      }
+
+      // Automatic Role-Based Dashboard Redirection
+      if (authenticatedUser.role === 'admin' || authenticatedUser.role === 'superadmin') {
+        // Redirect to Admin Dashboard
+        router.replace('/(admin)');
+      } else if (authenticatedUser.role === 'user') {
+        // Verify user membership status
+        if (authenticatedUser.membershipStatus === 'pending') {
+          setError('Your membership is pending approval. You will receive an email once approved.');
+          return;
+        }
+        if (
+          authenticatedUser.membershipStatus === 'rejected' ||
+          (authenticatedUser.membershipStatus as string) === 'inactive'
+        ) {
+          setError('Your membership application was not approved or has been deactivated. Please contact support.');
+          return;
+        }
+
+        // Redirect to User Dashboard
         router.replace('/(tabs)');
+      } else {
+        setError('Unauthorized access: Account role is unrecognized or unsupported.');
       }
     } catch (err: any) {
-      setError(getCleanErrorMessage(err));
+      const msg = err?.message || 'Authentication failed. Please verify your credentials.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -165,12 +226,12 @@ export default function UserLoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#060E2B" />
+      <StatusBar barStyle="light-content" backgroundColor="#07122A" />
 
-      {/* Rich deep navy background */}
+      {/* Deep KEA Blue Base Background */}
       <View style={styles.bgFull} />
 
-      {/* Decorative glow orbs */}
+      {/* Soft KEA Brand Glow Orbs */}
       <View style={styles.glowOrb1} />
       <View style={styles.glowOrb2} />
 
@@ -182,14 +243,13 @@ export default function UserLoginScreen() {
         <View style={styles.cardContainer}>
           <View style={styles.card}>
 
-            {/* Standardized KEA Official Brand Logo Card */}
+            {/* Official KEA Logo Brand Card */}
             <LinearGradient
-              colors={['#081A3C', '#0E306E', '#184A96']}
+              colors={['#0A1D40', '#0F2F68', '#1E4DB7']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.logoBadgeCard}
             >
-              {/* Soft Backlight Aura for Maximum Visibility & Contrast */}
               <View style={styles.logoHighlightAura} />
               <Image
                 source={require('../../assets/kea-logo.png')}
@@ -201,13 +261,15 @@ export default function UserLoginScreen() {
             {/* Card Header */}
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Welcome Back</Text>
-              <Text style={styles.cardSubtitle}>Sign in to your KEA account</Text>
+              <Text style={styles.cardSubtitle}>
+                Sign in to your Kokani Engineers Association account
+              </Text>
             </View>
 
             {/* Error Banner */}
             {error ? (
               <View style={styles.errorBox}>
-                <AlertCircle size={15} color="#EF4444" />
+                <AlertCircle size={16} color="#DC2626" style={{ marginTop: 2 }} />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             ) : null}
@@ -215,12 +277,21 @@ export default function UserLoginScreen() {
             {/* Email Field */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Email Address</Text>
-              <View style={[styles.inputWrapper, emailFocused && styles.inputFocused]}>
-                <Mail size={17} color={emailFocused ? '#3B6EFF' : '#A0ABBB'} style={styles.inputIcon} />
+              <View
+                style={[
+                  styles.inputWrapper,
+                  emailFocused && styles.inputWrapperFocused,
+                ]}
+              >
+                <Mail
+                  size={17}
+                  color={emailFocused ? '#2563EB' : '#94A3B8'}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.input}
-                  placeholder="you@example.com"
-                  placeholderTextColor="#A0ABBB"
+                  placeholder="name@example.com"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -239,23 +310,23 @@ export default function UserLoginScreen() {
 
             {/* Password Field */}
             <View style={[styles.fieldGroup, { marginTop: 14 }]}>
-              <View style={styles.labelRow}>
-                <Text style={styles.label}>Password</Text>
-                <TouchableOpacity
-                  onPress={() => router.push('/(auth)/forgot-password')}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.forgotText}>Forgot Password?</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={[styles.inputWrapper, passwordFocused && styles.inputFocused]}>
-                <Lock size={17} color={passwordFocused ? '#3B6EFF' : '#A0ABBB'} style={styles.inputIcon} />
+              <Text style={styles.label}>Password</Text>
+              <View
+                style={[
+                  styles.inputWrapper,
+                  passwordFocused && styles.inputWrapperFocused,
+                ]}
+              >
+                <Lock
+                  size={17}
+                  color={passwordFocused ? '#2563EB' : '#94A3B8'}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   ref={passwordRef}
                   style={[styles.input, { paddingRight: 44 }]}
                   placeholder="Enter your password"
-                  placeholderTextColor="#A0ABBB"
+                  placeholderTextColor="#94A3B8"
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -272,37 +343,74 @@ export default function UserLoginScreen() {
                   style={styles.eyeBtn}
                   onPress={() => setShowPassword((prev) => !prev)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
                 >
                   {showPassword ? (
-                    <EyeOff size={17} color="#A0ABBB" />
+                    <EyeOff size={18} color="#94A3B8" />
                   ) : (
-                    <Eye size={17} color="#A0ABBB" />
+                    <Eye size={18} color="#94A3B8" />
                   )}
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Sign In Button */}
+            {/* Remember Me & Forgot Password Row */}
+            <View style={styles.optionsRow}>
+              {/* Remember Me Checkbox */}
+              <TouchableOpacity
+                style={styles.rememberMeContainer}
+                onPress={() => setRememberMe((prev) => !prev)}
+                activeOpacity={0.7}
+              >
+                <View
+                  style={[
+                    styles.checkboxBase,
+                    rememberMe && styles.checkboxActive,
+                  ]}
+                >
+                  {rememberMe && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
+                </View>
+                <Text style={styles.rememberMeLabel}>Remember me</Text>
+              </TouchableOpacity>
+
+              {/* Forgot Password */}
+              <TouchableOpacity
+                onPress={() => router.push('/(auth)/forgot-password')}
+                activeOpacity={0.7}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Text style={styles.forgotText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Login Action Button */}
             <TouchableOpacity
               style={[styles.signInBtn, loading && styles.signInBtnDisabled]}
               onPress={handleLogin}
               disabled={loading}
-              activeOpacity={0.75}
+              activeOpacity={0.85}
             >
-              {loading ? (
-                <View style={styles.btnRow}>
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={styles.signInBtnText}>Signing in...</Text>
-                </View>
-              ) : (
-                <View style={styles.btnRow}>
-                  <Text style={styles.signInBtnText}>Sign In</Text>
-                  <ChevronRight size={18} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                </View>
-              )}
+              <LinearGradient
+                colors={['#1D4ED8', '#2563EB']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.signInGradient}
+              >
+                {loading ? (
+                  <View style={styles.btnRow}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.signInBtnText}>Signing in...</Text>
+                  </View>
+                ) : (
+                  <View style={styles.btnRow}>
+                    <Text style={styles.signInBtnText}>Sign In</Text>
+                    <ChevronRight size={18} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                  </View>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
 
-            {/* Biometric Row */}
+            {/* Quick Biometric Login (Mobile only) */}
             {canUseBiometrics && (
               <TouchableOpacity
                 style={styles.bioBtn}
@@ -310,24 +418,23 @@ export default function UserLoginScreen() {
                 activeOpacity={0.8}
               >
                 <View style={styles.bioIconWrap}>
-                  <Fingerprint size={20} color="#3B6EFF" />
+                  <Fingerprint size={20} color="#2563EB" />
                 </View>
                 <View style={styles.bioTextWrap}>
-                  <Text style={styles.bioTitle}>Use Biometric Login</Text>
-                  <Text style={styles.bioSub}>Fingerprint · Face ID</Text>
+                  <Text style={styles.bioTitle}>Quick Biometric Login</Text>
+                  <Text style={styles.bioSub}>Fingerprint · Face ID verification</Text>
                 </View>
                 <ChevronRight size={16} color="#CBD5E1" />
               </TouchableOpacity>
             )}
 
-            {/* Divider */}
+            {/* Sign Up / Registration Divider & Link */}
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerLabel}>New to KEA?</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Register Button */}
             <TouchableOpacity
               style={styles.registerBtn}
               onPress={() => router.push('/(auth)/register')}
@@ -340,10 +447,19 @@ export default function UserLoginScreen() {
         </View>
       </ScrollView>
 
+      {/* Pattern Lock Verification Modal */}
       <PatternLockModal
         visible={showPatternLock}
         mode="verify"
-        onSuccess={() => { setShowPatternLock(false); router.replace('/(tabs)'); }}
+        onSuccess={async () => {
+          setShowPatternLock(false);
+          const storedUser = await storage.getUserData();
+          if (storedUser?.role === 'admin' || storedUser?.role === 'superadmin') {
+            router.replace('/(admin)');
+          } else {
+            router.replace('/(tabs)');
+          }
+        }}
         onCancel={() => setShowPatternLock(false)}
         onForgotPattern={() => {
           setShowPatternLock(false);
@@ -357,91 +473,88 @@ export default function UserLoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1437',
+    backgroundColor: '#07122A',
   },
 
-  // Full background
   bgFull: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#060E2B',
+    backgroundColor: '#07122A',
   },
 
-  // Decorative glow orbs
+  // Ambient Glow Orbs
   glowOrb1: {
     position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: 'rgba(26, 75, 255, 0.12)',
-    top: -80,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    top: -90,
     right: -80,
+    backgroundColor: 'rgba(37, 99, 235, 0.18)',
   },
   glowOrb2: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(59, 110, 255, 0.07)',
-    bottom: 60,
-    left: -60,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    bottom: 50,
+    left: -70,
+    backgroundColor: 'rgba(30, 64, 175, 0.12)',
   },
 
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 14,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
   },
 
-  // Card Container
   cardContainer: {
-    paddingHorizontal: 0,
     alignItems: 'center',
     width: '100%',
   },
 
-  // Card
+  // White Card with Clean KEA Styling
   card: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 420,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 16,
+    padding: 22,
     borderWidth: 1.5,
-    borderColor: '#DCE6F5',
+    borderColor: '#E2E8F0',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
     shadowRadius: 24,
-    elevation: 8,
+    elevation: 9,
   },
 
-  // KEA Logo Badge Card (High Visibility & Standardized)
+  // Logo Container
   logoBadgeCard: {
     width: '100%',
-    height: 112,
-    borderRadius: 8,
+    height: 116,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
     overflow: 'hidden',
     position: 'relative',
-    shadowColor: '#071630',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
+    shadowOpacity: 0.18,
     shadowRadius: 10,
-    elevation: 3,
+    elevation: 4,
   },
   logoHighlightAura: {
     position: 'absolute',
-    width: '90%',
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(59, 130, 246, 0.28)',
+    width: '92%',
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: 'rgba(37, 99, 235, 0.32)',
   },
   logoBadgeImage: {
     width: '94%',
@@ -449,7 +562,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
 
-  // Card Header
+  // Header
   cardHeader: {
     marginBottom: 20,
     alignItems: 'center',
@@ -457,35 +570,36 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 23,
     fontWeight: '800',
-    color: '#0A1628',
-    letterSpacing: -0.5,
+    color: '#0F172A',
+    letterSpacing: -0.4,
     marginBottom: 4,
     textAlign: 'center',
   },
   cardSubtitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     color: '#64748B',
     fontWeight: '400',
-    lineHeight: 19,
+    lineHeight: 18,
     textAlign: 'center',
+    paddingHorizontal: 8,
   },
 
-  // Error Box
+  // Error Banner
   errorBox: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 9,
-    backgroundColor: '#FFF1F2',
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
     borderColor: '#FECDD3',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 18,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    marginBottom: 16,
   },
   errorText: {
-    fontSize: 13,
-    color: '#BE123C',
+    fontSize: 12.5,
+    color: '#B91C1C',
     fontWeight: '600',
     flex: 1,
     lineHeight: 18,
@@ -495,25 +609,13 @@ const styles = StyleSheet.create({
   fieldGroup: {
     width: '100%',
   },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
   label: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#334155',
     marginBottom: 6,
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
     textTransform: 'uppercase',
-  },
-  forgotText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#1A4BFF',
-    textTransform: 'none',
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -521,48 +623,88 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 12,
+    borderRadius: 10,
     height: 48,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
   },
-  inputFocused: {
-    borderColor: '#1E3A8A',
-    backgroundColor: '#FFFFFF',
+  inputWrapperFocused: {
+    borderColor: '#2563EB',
     borderWidth: 1.5,
+    backgroundColor: '#FFFFFF',
   },
   inputIcon: {
-    marginRight: 11,
+    marginRight: 10,
   },
   input: {
     flex: 1,
     height: '100%',
-    fontSize: 15,
+    fontSize: 14.5,
     color: '#0F172A',
     fontWeight: '500',
     paddingVertical: 0,
   },
   eyeBtn: {
     position: 'absolute',
-    right: 14,
+    right: 12,
     padding: 4,
+  },
+
+  // Remember Me & Forgot Password Row
+  optionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkboxBase: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#94A3B8',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  rememberMeLabel: {
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '500',
+  },
+  forgotText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#2563EB',
   },
 
   // Sign In Button
   signInBtn: {
-    backgroundColor: '#1E3A8A',
-    height: 50,
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 14,
-    shadowColor: '#1E3A8A',
+    overflow: 'hidden',
+    shadowColor: '#2563EB',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
   },
+  signInGradient: {
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
   signInBtnDisabled: {
-    opacity: 0.6,
+    opacity: 0.65,
   },
   btnRow: {
     flexDirection: 'row',
@@ -572,7 +714,7 @@ const styles = StyleSheet.create({
   },
   signInBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
@@ -585,30 +727,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginTop: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    marginTop: 12,
   },
   bioIconWrap: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 8,
-    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 11,
+    backgroundColor: '#EFF6FF',
   },
   bioTextWrap: {
     flex: 1,
   },
   bioTitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: 2,
   },
   bioSub: {
-    fontSize: 11.5,
+    fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
   },
@@ -617,7 +759,8 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 14,
+    marginTop: 18,
+    marginBottom: 14,
     gap: 10,
   },
   dividerLine: {
@@ -632,18 +775,18 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
 
-  // Register Button (Create an Account)
+  // Register Button
   registerBtn: {
-    height: 48,
+    height: 46,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.2,
+    borderColor: '#CBD5E1',
   },
   registerBtnText: {
-    fontSize: 14.5,
+    fontSize: 14,
     fontWeight: '700',
     color: '#1E293B',
     letterSpacing: 0.2,

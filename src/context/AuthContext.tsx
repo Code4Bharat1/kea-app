@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserProfile } from '../types';
 import { storage } from '../utils/storage';
-import { authApi, LoginPayload, RegisterPayload } from '../api/auth.api';
+import { authApi, LoginPayload, RegisterPayload, AuthResponse } from '../api/auth.api';
 import { userApi } from '../api/user.api';
 import { setOnUnauthorizedCallback } from '../api/client';
 import { MOCK_USER } from '../constants/mockData';
@@ -12,7 +12,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (payload: LoginPayload) => Promise<void>;
+  login: (payload: LoginPayload) => Promise<AuthResponse>;
   loginDemo: () => Promise<void>;
   loginWithBiometrics: () => Promise<BiometricAuthResult>;
   register: (payload: RegisterPayload) => Promise<void>;
@@ -73,14 +73,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (payload: LoginPayload) => {
+  const login = async (payload: LoginPayload): Promise<AuthResponse> => {
     setIsLoading(true);
     try {
-      const data = await authApi.login(payload);
+      const data = await authApi.unifiedLogin(payload);
       setToken(data.token);
       setUser(data.user);
       await storage.setToken(data.token);
       await storage.setUserData(data.user);
+      return data;
     } finally {
       setIsLoading(false);
     }

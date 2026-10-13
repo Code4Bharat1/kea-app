@@ -94,6 +94,68 @@ export const authApi = {
     }
   },
 
+  async adminLogin(payload: LoginPayload): Promise<AuthResponse> {
+    const cleanEmail = payload.email ? payload.email.trim().toLowerCase() : '';
+    console.log('📥 [Admin Login Request]: Base URL:', apiClient.defaults.baseURL, '| Email:', cleanEmail);
+    try {
+      const res = await apiClient.post<any>('/auth/admin/login', {
+        email: cleanEmail,
+        password: payload.password,
+      });
+      const data = res.data;
+      const token = data.token || data.accessToken || data.data?.token || data.data?.accessToken;
+      const user = data.user || data.data?.user || (typeof data.data === 'object' && data.data?._id ? data.data : undefined);
+
+      if (!token || !user) {
+        throw new Error(data.message || 'Invalid administrator authentication payload.');
+      }
+      return { token, user, message: data.message };
+    } catch (err: any) {
+      if (err?.response) {
+        const status = err.response.status;
+        const backendMsg = err.response.data?.message;
+
+        if (backendMsg) {
+          throw new Error(backendMsg);
+        }
+
+        switch (status) {
+          case 401:
+            throw new Error('Invalid administrator credentials.');
+          case 403:
+            throw new Error('Access denied. Administrator privileges required.');
+          case 404:
+            throw new Error('No administrator account found with this email.');
+          default:
+            throw new Error(`Server Error (${status}): Internal server error.`);
+        }
+      }
+
+      if (err?.code === 'ERR_NETWORK' || err?.message?.includes('Network Error')) {
+        throw new Error(`Connection Error: Could not reach backend API server at ${apiClient.defaults.baseURL}.`);
+      }
+
+      throw err;
+    }
+  },
+
+  async unifiedLogin(payload: LoginPayload): Promise<AuthResponse> {
+    const cleanEmail = payload.email ? payload.email.trim().toLowerCase() : '';
+    try {
+      // 1. Attempt standard member login
+      return await this.login({ email: cleanEmail, password: payload.password });
+    } catch (err: any) {
+      const errMsg = err?.message || '';
+      // 2. If the user account is flagged as admin by backend:
+      // In KEA backend, /auth/login returns 403 "Admins must use the admin login portal"
+      if (errMsg.toLowerCase().includes('admin')) {
+        console.log('🔄 Account flagged as administrator, authenticating via admin portal...');
+        return await this.adminLogin({ email: cleanEmail, password: payload.password });
+      }
+      throw err;
+    }
+  },
+
   async register(payload: RegisterPayload): Promise<AuthResponse> {
     const cleanEmail = payload.email ? payload.email.trim().toLowerCase() : '';
     try {

@@ -8,17 +8,21 @@ import { Loader } from '../src/components/common/Loader';
 import { Image } from 'react-native';
 
 export default function IndexScreen() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, user } = useAuth();
 
   useEffect(() => {
     if (!isLoading) {
-      if (isAuthenticated) {
-        router.replace('/(tabs)');
+      if (isAuthenticated && user) {
+        if (user.role === 'admin' || user.role === 'superadmin') {
+          router.replace('/(admin)');
+        } else {
+          router.replace('/(tabs)');
+        }
       } else {
         router.replace('/(auth)/login');
       }
     }
-  }, [isLoading, isAuthenticated]);
+  }, [isLoading, isAuthenticated, user]);
 
   return (
     <View style={styles.container}>

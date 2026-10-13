@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { Sidebar } from '../components/common/Sidebar';
+import AdminSidebar from '../components/admin/AdminSidebar';
+import { useAuth } from './AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.84, 330);
@@ -48,6 +50,9 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
   } catch (e) {
     pathname = '/';
   }
+
+  const { user } = useAuth();
+  const isAdmin = Boolean(user && (user.role === 'admin' || user.role === 'superadmin'));
 
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
@@ -236,10 +241,15 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
             {...panResponder.panHandlers}
             style={[
               styles.drawerContentContainer,
+              isAdmin && { backgroundColor: '#0D2847' },
               { transform: [{ translateX: slideAnim }] },
             ]}
           >
-            <Sidebar onClose={closeSidebar} />
+            {isAdmin ? (
+              <AdminSidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
+            ) : (
+              <Sidebar onClose={closeSidebar} />
+            )}
           </Animated.View>
         </View>
       </View>

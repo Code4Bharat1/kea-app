@@ -35,12 +35,27 @@ export const setOnUnauthorizedCallback = (cb: () => void) => {
   onUnauthorizedCallback = cb;
 };
 
-// Request Interceptor to attach Bearer Token only if it's a valid 3-part JWT
+// Request Interceptor to attach Bearer Token robustly
 apiClient.interceptors.request.use(
   async (config) => {
-    const token = await storage.getToken();
-    if (token && typeof token === 'string' && token.split('.').length === 3) {
-      config.headers.Authorization = `Bearer ${token}`;
+    let token = await storage.getToken();
+    if (!token && Platform.OS === 'web' && typeof window !== 'undefined') {
+      token = localStorage.getItem('adminToken') || localStorage.getItem('kea_user_token');
+    }
+    if (token && typeof token === 'string') {
+      let cleanToken = token.trim();
+      if (
+        (cleanToken.startsWith('"') && cleanToken.endsWith('"')) ||
+        (cleanToken.startsWith("'") && cleanToken.endsWith("'"))
+      ) {
+        cleanToken = cleanToken.slice(1, -1).trim();
+      }
+      if (cleanToken.startsWith('Bearer ')) {
+        cleanToken = cleanToken.slice(7).trim();
+      }
+      if (cleanToken) {
+        config.headers.Authorization = `Bearer ${cleanToken}`;
+      }
     }
     return config;
   },
