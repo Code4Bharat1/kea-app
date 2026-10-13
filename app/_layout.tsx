@@ -35,6 +35,7 @@ export default function RootLayout() {
               <Stack.Screen name="index" />
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="(admin)" />
               <Stack.Screen name="profile/index" options={{ presentation: 'card' }} />
               <Stack.Screen name="profile/edit" options={{ presentation: 'card' }} />
               <Stack.Screen name="profile/resumes" options={{ presentation: 'card' }} />
